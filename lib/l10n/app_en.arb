@@ -1,0 +1,1722 @@
+{
+  "@@locale": "en",
+  "appTitle": "Flutter Starter",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+  
+  "welcomeMessage": "Welcome to Flutter Starter",
+  "@welcomeMessage": {
+    "description": "Welcome message displayed on home page"
+  },
+  
+  "home": "Home",
+  "@home": {
+    "description": "Home navigation label"
+  },
+  
+  "dashboard": "Dashboard",
+  "@dashboard": {
+    "description": "Dashboard navigation label"
+  },
+  
+  "users": "Users",
+  "@users": {
+    "description": "Users navigation label"
+  },
+  
+  "notifications": "Notifications",
+  "@notifications": {
+    "description": "Notifications navigation label"
+  },
+  
+  "settings": "Settings",
+  "@settings": {
+    "description": "Settings navigation label"
+  },
+  
+  "forms": "Forms",
+  "@forms": {
+    "description": "Forms navigation label"
+  },
+  
+  "login": "Login",
+  "@login": {
+    "description": "Login button text"
+  },
+  
+  "logout": "Logout",
+  "@logout": {
+    "description": "Logout button text"
+  },
+  
+  "email": "Email",
+  "@email": {
+    "description": "Email field label"
+  },
+  
+  "password": "Password",
+  "@password": {
+    "description": "Password field label"
+  },
+  
+  "confirmPassword": "Confirm Password",
+  "@confirmPassword": {
+    "description": "Confirm password field label"
+  },
+  
+  "register": "Register",
+  "@register": {
+    "description": "Register button text"
+  },
+  
+  "profile": "Profile",
+  "@profile": {
+    "description": "Profile label"
+  },
+  
+  "theme": "Theme",
+  "@theme": {
+    "description": "Theme settings label"
+  },
+  
+  "language": "Language",
+  "@language": {
+    "description": "Language settings label"
+  },
+  
+  "lightMode": "Light Mode",
+  "@lightMode": {
+    "description": "Light theme mode label"
+  },
+  
+  "darkMode": "Dark Mode",
+  "@darkMode": {
+    "description": "Dark theme mode label"
+  },
+  
+  "systemMode": "System",
+  "@systemMode": {
+    "description": "System theme mode label"
+  },
+  
+  "search": "Search",
+  "@search": {
+    "description": "Search placeholder text"
+  },
+  
+  "save": "Save",
+  "@save": {
+    "description": "Save button text"
+  },
+  
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Cancel button text"
+  },
+  
+  "delete": "Delete",
+  "@delete": {
+    "description": "Delete button text"
+  },
+  
+  "edit": "Edit",
+  "@edit": {
+    "description": "Edit button text"
+  },
+  
+  "add": "Add",
+  "@add": {
+    "description": "Add button text"
+  },
+  
+  "loading": "Loading...",
+  "@loading": {
+    "description": "Loading indicator text"
+  },
+  
+  "error": "Error",
+  "@error": {
+    "description": "Error message label"
+  },
+  
+  "success": "Success",
+  "@success": {
+    "description": "Success message label"
+  },
+  
+  "retry": "Retry",
+  "@retry": {
+    "description": "Retry button text"
+  },
+  
+  "totalUsers": "Total Users",
+  "@totalUsers": {
+    "description": "Total users stat label"
+  },
+  
+  "activeUsers": "Active Users",
+  "@activeUsers": {
+    "description": "Active users stat label"
+  },
+  
+  "totalRevenue": "Total Revenue",
+  "@totalRevenue": {
+    "description": "Total revenue stat label"
+  },
+  
+  "growthRate": "Growth Rate",
+  "@growthRate": {
+    "description": "Growth rate stat label"
+  },
+  
+  "name": "Name",
+  "@name": {
+    "description": "Name field label"
+  },
+  
+  "fullName": "Full Name",
+  "@fullName": {
+    "description": "Full name field label"
+  },
+  
+  "phoneNumber": "Phone Number",
+  "@phoneNumber": {
+    "description": "Phone number field label"
+  },
+  
+  "department": "Department",
+  "@department": {
+    "description": "Department field label"
+  },
+  
+  "role": "Role",
+  "@role": {
+    "description": "Role field label"
+  },
+  
+  "status": "Status",
+  "@status": {
+    "description": "Status field label"
+  },
+  
+  "active": "Active",
+  "@active": {
+    "description": "Active status label"
+  },
+  
+  "inactive": "Inactive",
+  "@inactive": {
+    "description": "Inactive status label"
+  },
+  
+  "fileUpload": "File Upload",
+  "@fileUpload": {
+    "description": "File upload feature label"
+  },
+  
+  "dropFilesHere": "Drop files here",
+  "@dropFilesHere": {
+    "description": "File upload drop zone text"
+  },
+  
+  "selectFiles": "Select Files",
+  "@selectFiles": {
+    "description": "Select files button text"
+  },
+  
+  "uploadSuccess": "Upload successful!",
+  "@uploadSuccess": {
+    "description": "File upload success message"
+  },
+  
+  "uploadError": "Upload failed",
+  "@uploadError": {
+    "description": "File upload error message"
+  },
+  
+  "welcomeTitle": "Welcome to Flutter Starter",
+  "@welcomeTitle": {
+    "description": "Welcome title on home page"
+  },
+  
+  "welcomeSubtitle": "A Material 3 starter template with authentication,\\ntheming, and responsive navigation",
+  "@welcomeSubtitle": {
+    "description": "Welcome subtitle describing the app"
+  },
+  
+  "uiComponents": "UI Components",
+  "@uiComponents": {
+    "description": "UI Components showcase button"
+  },
+  
+  "loadingSkeletons": "Loading Skeletons",
+  "@loadingSkeletons": {
+    "description": "Loading skeletons showcase button"
+  },
+  
+  "errorHandling": "Error Handling",
+  "@errorHandling": {
+    "description": "Error handling showcase button"
+  },
+  
+  "features": "Features",
+  "@features": {
+    "description": "Features section title"
+  },
+  
+  "material3Design": "Material 3 Design",
+  "@material3Design": {
+    "description": "Material 3 design feature title"
+  },
+  
+  "material3Description": "Built with the latest Material Design system",
+  "@material3Description": {
+    "description": "Material 3 design feature description"
+  },
+  
+  "dynamicTheming": "Dynamic Theming",
+  "@dynamicTheming": {
+    "description": "Dynamic theming feature title"
+  },
+  
+  "dynamicThemingDescription": "Choose from 9 color themes with dark mode support",
+  "@dynamicThemingDescription": {
+    "description": "Dynamic theming feature description"
+  },
+  
+  "responsiveLayout": "Responsive Layout",
+  "@responsiveLayout": {
+    "description": "Responsive layout feature title"
+  },
+  
+  "responsiveLayoutDescription": "Adapts to mobile, tablet, and desktop screens",
+  "@responsiveLayoutDescription": {
+    "description": "Responsive layout feature description"
+  },
+  
+  "authenticationReady": "Authentication Ready",
+  "@authenticationReady": {
+    "description": "Authentication ready feature title"
+  },
+  
+  "authenticationDescription": "Login and registration flows included",
+  "@authenticationDescription": {
+    "description": "Authentication ready feature description"
+  },
+
+  "welcomeBack": "Welcome Back",
+  "@welcomeBack": {
+    "description": "Welcome back message on login page"
+  },
+
+  "createAccount": "Create Account",
+  "@createAccount": {
+    "description": "Create account title and button"
+  },
+
+  "pleaseEnterEmail": "Please enter your email",
+  "@pleaseEnterEmail": {
+    "description": "Email validation message"
+  },
+
+  "pleaseEnterValidEmail": "Please enter a valid email",
+  "@pleaseEnterValidEmail": {
+    "description": "Invalid email validation message"
+  },
+
+  "pleaseEnterPassword": "Please enter your password",
+  "@pleaseEnterPassword": {
+    "description": "Password validation message"
+  },
+
+  "passwordMustBe6Chars": "Password must be at least 6 characters",
+  "@passwordMustBe6Chars": {
+    "description": "Password length validation message"
+  },
+
+  "pleaseConfirmPassword": "Please confirm your password",
+  "@pleaseConfirmPassword": {
+    "description": "Confirm password validation message"
+  },
+
+  "passwordsDoNotMatch": "Passwords do not match",
+  "@passwordsDoNotMatch": {
+    "description": "Password mismatch validation message"
+  },
+
+  "alreadyHaveAccount": "Already have an account? Login",
+  "@alreadyHaveAccount": {
+    "description": "Login link on register page"
+  },
+
+  "createAnAccount": "Create an account",
+  "@createAnAccount": {
+    "description": "Register link on login page"
+  },
+
+  "guestMode": "Guest Mode",
+  "@guestMode": {
+    "description": "Guest mode indicator"
+  },
+
+  "demoData": "Demo",
+  "@demoData": {
+    "description": "Demo data indicator"
+  },
+
+  "viewingDemoData": "You're viewing demo data in guest mode. Login to see your real dashboard.",
+  "@viewingDemoData": {
+    "description": "Demo data explanation"
+  },
+
+  "close": "Close",
+  "@close": {
+    "description": "Close button text"
+  },
+
+  "thisDashboardShowsDemo": "This dashboard shows demo data in guest mode.",
+  "@thisDashboardShowsDemo": {
+    "description": "Dashboard demo data message"
+  },
+
+  "viewRealAnalytics": "View your real analytics data",
+  "@viewRealAnalytics": {
+    "description": "Login benefit - analytics"
+  },
+
+  "createCustomDashboards": "Create custom dashboards",
+  "@createCustomDashboards": {
+    "description": "Login benefit - dashboards"
+  },
+
+  "exportReports": "Export reports and insights",
+  "@exportReports": {
+    "description": "Login benefit - reports"
+  },
+
+  "setupDataAlerts": "Set up data alerts",
+  "@setupDataAlerts": {
+    "description": "Login benefit - alerts"
+  },
+
+  "userGrowth": "User Growth",
+  "@userGrowth": {
+    "description": "User growth chart title"
+  },
+
+  "revenueTrend": "Revenue Trend",
+  "@revenueTrend": {
+    "description": "Revenue trend chart title"
+  },
+
+  "recentActivity": "Recent Activity",
+  "@recentActivity": {
+    "description": "Recent activity section title"
+  },
+
+  "userManagementLimited": "User management features are limited in guest mode.",
+  "@userManagementLimited": {
+    "description": "User management guest mode message"
+  },
+
+  "addEditDeleteUsers": "Add, edit, and delete users",
+  "@addEditDeleteUsers": {
+    "description": "Login benefit - user management"
+  },
+
+  "accessDetailedProfiles": "Access detailed user profiles",
+  "@accessDetailedProfiles": {
+    "description": "Login benefit - user profiles"
+  },
+
+  "exportUserData": "Export user data",
+  "@exportUserData": {
+    "description": "Login benefit - user data export"
+  },
+
+  "manageUserPermissions": "Manage user permissions",
+  "@manageUserPermissions": {
+    "description": "Login benefit - user permissions"
+  },
+
+  "searchUsers": "Search users by name, email, or department...",
+  "@searchUsers": {
+    "description": "User search placeholder"
+  },
+
+  "addUser": "Add User",
+  "@addUser": {
+    "description": "Add user button"
+  },
+
+  "loginToAdd": "Login to Add",
+  "@loginToAdd": {
+    "description": "Login to add button for guests"
+  },
+
+  "noUsersFound": "No users found matching \"{query}\"",
+  "@noUsersFound": {
+    "description": "No users found message",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+
+  "noUsersYet": "No users yet",
+  "@noUsersYet": {
+    "description": "No users message"
+  },
+
+  "undo": "Undo",
+  "@undo": {
+    "description": "Undo button text"
+  },
+
+  "errorDeletingUser": "Error deleting user: {error}",
+  "@errorDeletingUser": {
+    "description": "Error deleting user message",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "deleteUser": "Delete User",
+  "@deleteUser": {
+    "description": "Delete user dialog title"
+  },
+
+  "confirmDeleteUser": "Are you sure you want to delete {name}?",
+  "@confirmDeleteUser": {
+    "description": "Delete user confirmation message",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+
+  "userDetails": "User Details",
+  "@userDetails": {
+    "description": "User details page title"
+  },
+
+  "userNotFound": "User not found",
+  "@userNotFound": {
+    "description": "User not found message"
+  },
+
+  "backToUsers": "Back to Users",
+  "@backToUsers": {
+    "description": "Back to users button"
+  },
+
+  "contactInformation": "Contact Information",
+  "@contactInformation": {
+    "description": "Contact information section"
+  },
+
+  "phone": "Phone",
+  "@phone": {
+    "description": "Phone field label"
+  },
+
+  "accountInformation": "Account Information",
+  "@accountInformation": {
+    "description": "Account information section"
+  },
+
+  "userId": "User ID",
+  "@userId": {
+    "description": "User ID field label"
+  },
+
+  "created": "Created",
+  "@created": {
+    "description": "Created date field label"
+  },
+
+  "activity": "Activity",
+  "@activity": {
+    "description": "Activity section title"
+  },
+
+  "lastLogin": "Last Login",
+  "@lastLogin": {
+    "description": "Last login field label"
+  },
+
+  "userNotLoggedIn": "User has not logged in yet",
+  "@userNotLoggedIn": {
+    "description": "User never logged in message"
+  },
+
+  "userDeleted": "User {name} deleted",
+  "@userDeleted": {
+    "description": "User deleted success message",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+
+  "editUser": "Edit User",
+  "@editUser": {
+    "description": "Edit user button and title"
+  },
+
+  "actions": "Actions",
+  "@actions": {
+    "description": "Actions column header"
+  },
+
+  "viewDetails": "View Details",
+  "@viewDetails": {
+    "description": "View details button"
+  },
+
+  "loginToEditUsers": "Login to Edit Users",
+  "@loginToEditUsers": {
+    "description": "Login prompt for guest users"
+  },
+
+  "createNewUser": "Create New User",
+  "@createNewUser": {
+    "description": "Create new user dialog title"
+  },
+
+  "pleaseEnterName": "Please enter a name",
+  "@pleaseEnterName": {
+    "description": "Name validation message"
+  },
+
+  "phoneOptional": "Phone (optional)",
+  "@phoneOptional": {
+    "description": "Optional phone field label"
+  },
+
+  "userCanAccess": "User can access the system",
+  "@userCanAccess": {
+    "description": "Active user checkbox description"
+  },
+
+  "create": "Create",
+  "@create": {
+    "description": "Create button text"
+  },
+
+  "userCreatedSuccess": "User {name} created successfully",
+  "@userCreatedSuccess": {
+    "description": "User created success message",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+
+  "errorCreatingUser": "Error creating user: {error}",
+  "@errorCreatingUser": {
+    "description": "Error creating user message",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "saveChanges": "Save Changes",
+  "@saveChanges": {
+    "description": "Save changes button"
+  },
+
+  "userUpdatedSuccess": "User {name} updated successfully",
+  "@userUpdatedSuccess": {
+    "description": "User updated success message",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+
+  "errorUpdatingUser": "Error updating user: {error}",
+  "@errorUpdatingUser": {
+    "description": "Error updating user message",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "showAll": "Show all",
+  "@showAll": {
+    "description": "Show all notifications filter"
+  },
+
+  "showUnreadOnly": "Show unread only",
+  "@showUnreadOnly": {
+    "description": "Show unread only notifications filter"
+  },
+
+  "markAllAsRead": "Mark all as read",
+  "@markAllAsRead": {
+    "description": "Mark all notifications as read"
+  },
+
+  "allNotificationsRead": "All notifications marked as read",
+  "@allNotificationsRead": {
+    "description": "All notifications marked as read success message"
+  },
+
+  "loginToManageNotifications": "Please login to manage notifications",
+  "@loginToManageNotifications": {
+    "description": "Login required for notifications message"
+  },
+
+  "refresh": "Refresh",
+  "@refresh": {
+    "description": "Refresh button text"
+  },
+
+  "demoNotificationsMode": "These are demo notifications in guest mode.",
+  "@demoNotificationsMode": {
+    "description": "Demo notifications explanation"
+  },
+
+  "receiveRealTimeNotifications": "Receive real-time notifications",
+  "@receiveRealTimeNotifications": {
+    "description": "Login benefit - real-time notifications"
+  },
+
+  "manageNotificationPreferences": "Manage notification preferences",
+  "@manageNotificationPreferences": {
+    "description": "Login benefit - notification preferences"
+  },
+
+  "markNotificationsReadUnread": "Mark notifications as read/unread",
+  "@markNotificationsReadUnread": {
+    "description": "Login benefit - mark notifications"
+  },
+
+  "getPersonalizedAlerts": "Get personalized alerts",
+  "@getPersonalizedAlerts": {
+    "description": "Login benefit - personalized alerts"
+  },
+
+  "noUnreadNotifications": "No unread notifications",
+  "@noUnreadNotifications": {
+    "description": "No unread notifications message"
+  },
+
+  "noNotificationsYet": "No notifications yet",
+  "@noNotificationsYet": {
+    "description": "No notifications message"
+  },
+
+  "showAllNotifications": "Show all notifications",
+  "@showAllNotifications": {
+    "description": "Show all notifications button"
+  },
+
+  "today": "Today",
+  "@today": {
+    "description": "Today date label"
+  },
+
+  "yesterday": "Yesterday",
+  "@yesterday": {
+    "description": "Yesterday date label"
+  },
+
+  "themeChangeNotSaved": "Theme changes won't be saved permanently in guest mode.",
+  "@themeChangeNotSaved": {
+    "description": "Theme changes not saved in guest mode message"
+  },
+
+  "saveThemePreferences": "Save theme preferences permanently",
+  "@saveThemePreferences": {
+    "description": "Login benefit - save theme preferences"
+  },
+
+  "accessUserManagement": "Access user management features",
+  "@accessUserManagement": {
+    "description": "Login benefit - user management"
+  },
+
+  "syncSettingsAcrossDevices": "Sync settings across devices",
+  "@syncSettingsAcrossDevices": {
+    "description": "Login benefit - sync settings"
+  },
+
+  "appearance": "Appearance",
+  "@appearance": {
+    "description": "Appearance settings section"
+  },
+
+  "useDarkTheme": "Use dark theme",
+  "@useDarkTheme": {
+    "description": "Dark theme toggle description"
+  },
+
+  "useDarkThemeNotSaved": "Use dark theme (not saved in guest mode)",
+  "@useDarkThemeNotSaved": {
+    "description": "Dark theme toggle description for guests"
+  },
+
+  "themeColor": "Theme Color",
+  "@themeColor": {
+    "description": "Theme color section title"
+  },
+
+  "about": "About",
+  "@about": {
+    "description": "About section title"
+  },
+
+  "flutterStarterApp": "Flutter Starter App",
+  "@flutterStarterApp": {
+    "description": "App name in about section"
+  },
+
+  "version": "Version 1.0.0",
+  "@version": {
+    "description": "App version"
+  },
+
+  "flutterStarter": "Flutter Starter",
+  "@flutterStarter": {
+    "description": "App name"
+  },
+
+  "material3StarterTemplate": "A Material 3 starter template",
+  "@material3StarterTemplate": {
+    "description": "App description"
+  },
+
+  "starterFeatures": "This is a production-ready Flutter starter template featuring:\\n\\n• Material 3 design system\\n• Dynamic theming with 9 color options\\n• Responsive navigation\\n• Authentication flows\\n• State management with Riverpod",
+  "@starterFeatures": {
+    "description": "Detailed app features description"
+  },
+
+  "guestModeInHome": "Guest Mode",
+  "@guestModeInHome": {
+    "description": "Guest mode title in home page"
+  },
+
+  "loginToAccessPersonalization": "Login to access theme customization and other personalized features.",
+  "@loginToAccessPersonalization": {
+    "description": "Login prompt for personalization"
+  },
+
+  "formsExample": "Forms Example",
+  "@formsExample": {
+    "description": "Forms example page title"
+  },
+
+  "userRegistrationForm": "User Registration Form",
+  "@userRegistrationForm": {
+    "description": "User registration form title"
+  },
+
+  "completeFormDescription": "Complete form with various field types and validations",
+  "@completeFormDescription": {
+    "description": "Complete form description"
+  },
+
+  "paymentForm": "Payment Form",
+  "@paymentForm": {
+    "description": "Payment form title"
+  },
+
+  "creditCardFormDescription": "Credit card form with formatting and validation",
+  "@creditCardFormDescription": {
+    "description": "Credit card form description"
+  },
+
+  "feedbackForm": "Feedback Form",
+  "@feedbackForm": {
+    "description": "Feedback form title"
+  },
+
+  "ratingFormDescription": "Form with rating and multi-line text",
+  "@ratingFormDescription": {
+    "description": "Rating form description"
+  },
+
+  "nameMustBe3Chars": "Name must be at least 3 characters",
+  "@nameMustBe3Chars": {
+    "description": "Name length validation message"
+  },
+
+  "pleaseEnterPhoneNumber": "Please enter your phone number",
+  "@pleaseEnterPhoneNumber": {
+    "description": "Phone number validation message"
+  },
+
+  "pleaseEnterValidPhoneNumber": "Please enter a valid phone number",
+  "@pleaseEnterValidPhoneNumber": {
+    "description": "Invalid phone number validation message"
+  },
+
+  "gender": "Gender",
+  "@gender": {
+    "description": "Gender field label"
+  },
+
+  "passwordMustBe8Chars": "Password must be at least 8 characters",
+  "@passwordMustBe8Chars": {
+    "description": "Password length validation for forms"
+  },
+
+  "passwordComplexityRequired": "Password must contain uppercase, lowercase, and number",
+  "@passwordComplexityRequired": {
+    "description": "Password complexity validation message"
+  },
+
+  "interests": "Interests",
+  "@interests": {
+    "description": "Interests field label"
+  },
+
+  "agreeToTerms": "I agree to the Terms and Conditions",
+  "@agreeToTerms": {
+    "description": "Terms and conditions checkbox"
+  },
+
+  "cardNumber": "Card Number",
+  "@cardNumber": {
+    "description": "Card number field label"
+  },
+
+  "pleaseEnterCardNumber": "Please enter card number",
+  "@pleaseEnterCardNumber": {
+    "description": "Card number validation message"
+  },
+
+  "cardNumberMustBe16Digits": "Card number must be 16 digits",
+  "@cardNumberMustBe16Digits": {
+    "description": "Card number length validation"
+  },
+
+  "cardHolderName": "Card Holder Name",
+  "@cardHolderName": {
+    "description": "Card holder name field label"
+  },
+
+  "pleaseEnterCardHolderName": "Please enter card holder name",
+  "@pleaseEnterCardHolderName": {
+    "description": "Card holder name validation message"
+  },
+
+  "expiryDate": "Expiry Date",
+  "@expiryDate": {
+    "description": "Expiry date field label"
+  },
+
+  "mmYy": "MM/YY",
+  "@mmYy": {
+    "description": "Expiry date format placeholder"
+  },
+
+  "required": "Required",
+  "@required": {
+    "description": "Required field validation"
+  },
+
+  "invalid": "Invalid",
+  "@invalid": {
+    "description": "Invalid field validation"
+  },
+
+  "cvv": "CVV",
+  "@cvv": {
+    "description": "CVV field label"
+  },
+
+  "processPayment": "Process Payment",
+  "@processPayment": {
+    "description": "Process payment button"
+  },
+
+  "subject": "Subject",
+  "@subject": {
+    "description": "Subject field label"
+  },
+
+  "pleaseEnterSubject": "Please enter a subject",
+  "@pleaseEnterSubject": {
+    "description": "Subject validation message"
+  },
+
+  "satisfactionRating": "Satisfaction Rating",
+  "@satisfactionRating": {
+    "description": "Satisfaction rating field label"
+  },
+
+  "yourFeedback": "Your Feedback",
+  "@yourFeedback": {
+    "description": "Feedback text field label"
+  },
+
+  "tellUsWhatYouThink": "Tell us what you think...",
+  "@tellUsWhatYouThink": {
+    "description": "Feedback text field placeholder"
+  },
+
+  "pleaseEnterFeedback": "Please enter your feedback",
+  "@pleaseEnterFeedback": {
+    "description": "Feedback validation message"
+  },
+
+  "feedbackMustBe10Chars": "Feedback must be at least 10 characters",
+  "@feedbackMustBe10Chars": {
+    "description": "Feedback length validation"
+  },
+
+  "submitFeedback": "Submit Feedback",
+  "@submitFeedback": {
+    "description": "Submit feedback button"
+  },
+
+  "uiComponentsShowcase": "UI Components Showcase",
+  "@uiComponentsShowcase": {
+    "description": "UI components showcase page title"
+  },
+
+  "buttons": "Buttons",
+  "@buttons": {
+    "description": "Buttons section title"
+  },
+
+  "primary": "Primary",
+  "@primary": {
+    "description": "Primary button label"
+  },
+
+  "secondary": "Secondary",
+  "@secondary": {
+    "description": "Secondary button label"
+  },
+
+  "tertiary": "Tertiary",
+  "@tertiary": {
+    "description": "Tertiary button label"
+  },
+
+  "danger": "Danger",
+  "@danger": {
+    "description": "Danger button label"
+  },
+
+  "small": "Small",
+  "@small": {
+    "description": "Small button label"
+  },
+
+  "medium": "Medium",
+  "@medium": {
+    "description": "Medium button label"
+  },
+
+  "large": "Large",
+  "@large": {
+    "description": "Large button label"
+  },
+
+  "withIcon": "With Icon",
+  "@withIcon": {
+    "description": "Button with icon label"
+  },
+
+  "loadingButton": "Loading",
+  "@loadingButton": {
+    "description": "Loading button label"
+  },
+
+  "disabled": "Disabled",
+  "@disabled": {
+    "description": "Disabled button label"
+  },
+
+  "fullWidth": "Full Width",
+  "@fullWidth": {
+    "description": "Full width button label"
+  },
+
+  "cards": "Cards",
+  "@cards": {
+    "description": "Cards section title"
+  },
+
+  "elevatedCard": "Elevated Card",
+  "@elevatedCard": {
+    "description": "Elevated card title"
+  },
+
+  "filledCard": "Filled Card",
+  "@filledCard": {
+    "description": "Filled card title"
+  },
+
+  "outlinedCard": "Outlined Card",
+  "@outlinedCard": {
+    "description": "Outlined card title"
+  },
+
+  "clickableCard": "Clickable Card",
+  "@clickableCard": {
+    "description": "Clickable card title"
+  },
+
+  "textFields": "Text Fields",
+  "@textFields": {
+    "description": "Text fields section title"
+  },
+
+  "chips": "Chips",
+  "@chips": {
+    "description": "Chips section title"
+  },
+
+  "avatars": "Avatars",
+  "@avatars": {
+    "description": "Avatars section title"
+  },
+
+  "sampleCardContent": "This is sample content inside the card.",
+  "@sampleCardContent": {
+    "description": "Sample card content text"
+  },
+
+  "browsingAsGuest": "You're browsing as a guest with limited features.",
+  "@browsingAsGuest": {
+    "description": "Default guest mode message"
+  },
+
+  "loginToUnlock": "Login to unlock:",
+  "@loginToUnlock": {
+    "description": "Login benefits header"
+  },
+
+  "guest": "Guest",
+  "@guest": {
+    "description": "Guest chip label"
+  },
+
+  "searchPlaceholder": "Search...",
+  "@searchPlaceholder": {
+    "description": "Default search placeholder"
+  },
+
+  "details": "Details",
+  "@details": {
+    "description": "Details button or section"
+  },
+
+  "tryAgain": "Try Again",
+  "@tryAgain": {
+    "description": "Try again button"
+  },
+
+  "goHome": "Go Home",
+  "@goHome": {
+    "description": "Go home button"
+  },
+
+  "goBack": "Go Back",
+  "@goBack": {
+    "description": "Go back button"
+  },
+
+  "pageNotFound": "404 - Page Not Found",
+  "@pageNotFound": {
+    "description": "404 error title"
+  },
+
+  "pageNotFoundDescription": "The page you're looking for doesn't exist or has been moved.",
+  "@pageNotFoundDescription": {
+    "description": "404 error description"
+  },
+
+  "serverError": "500 - Server Error",
+  "@serverError": {
+    "description": "500 error title"
+  },
+
+  "serverErrorDescription": "Something went wrong on our end. Please try again later.",
+  "@serverErrorDescription": {
+    "description": "500 error description"
+  },
+
+  "networkError": "Network Error",
+  "@networkError": {
+    "description": "Network error title"
+  },
+
+  "networkErrorDescription": "Please check your internet connection and try again.",
+  "@networkErrorDescription": {
+    "description": "Network error description"
+  },
+
+  "unauthorized": "401 - Unauthorized",
+  "@unauthorized": {
+    "description": "401 error title"
+  },
+
+  "unauthorizedDescription": "You don't have permission to access this resource.",
+  "@unauthorizedDescription": {
+    "description": "401 error description"
+  },
+
+  "somethingWentWrong": "Something went wrong",
+  "@somethingWentWrong": {
+    "description": "Generic error title"
+  },
+
+  "unexpectedError": "An unexpected error occurred. Please try again.",
+  "@unexpectedError": {
+    "description": "Generic error description"
+  },
+
+  "orClickToBrowse": "or click to browse",
+  "@orClickToBrowse": {
+    "description": "File upload click to browse text"
+  },
+
+  "selectedFiles": "Selected Files:",
+  "@selectedFiles": {
+    "description": "Selected files label"
+  },
+
+  "errorSelectingFiles": "Error selecting files: {error}",
+  "@errorSelectingFiles": {
+    "description": "Error selecting files message",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "dropImageFiles": "Drop image files here",
+  "@dropImageFiles": {
+    "description": "Drop image files message"
+  },
+
+  "dropDocumentFiles": "Drop document files here",
+  "@dropDocumentFiles": {
+    "description": "Drop document files message"
+  },
+
+  "dropImageFilesWithFormats": "Drop image files here\\n(JPG, PNG, GIF, WebP)",
+  "@dropImageFilesWithFormats": {
+    "description": "Drop image files with supported formats"
+  },
+
+  "dropDocumentFilesWithFormats": "Drop document files here\\n(PDF, DOC, DOCX, TXT)",
+  "@dropDocumentFilesWithFormats": {
+    "description": "Drop document files with supported formats"
+  },
+
+  "skip": "Skip",
+  "@skip": {
+    "description": "Skip button on onboarding"
+  },
+
+  "previous": "Previous",
+  "@previous": {
+    "description": "Previous button on onboarding"
+  },
+
+  "getStarted": "Get Started",
+  "@getStarted": {
+    "description": "Get started button on onboarding"
+  },
+
+  "next": "Next",
+  "@next": {
+    "description": "Next button on onboarding"
+  },
+
+  "welcomeToFlutterStarter": "Welcome to Flutter Starter",
+  "@welcomeToFlutterStarter": {
+    "description": "Onboarding welcome title"
+  },
+
+  "onboardingWelcomeDescription": "A production-ready Material 3 starter template with authentication, theming, and responsive navigation.",
+  "@onboardingWelcomeDescription": {
+    "description": "Onboarding welcome description"
+  },
+
+  "onboardingMaterial3Title": "Material 3 Design",
+  "@onboardingMaterial3Title": {
+    "description": "Onboarding Material 3 title"
+  },
+
+  "onboardingMaterial3Description": "Built with the latest Material Design system featuring dynamic color themes and modern components.",
+  "@onboardingMaterial3Description": {
+    "description": "Onboarding Material 3 description"
+  },
+
+  "onboardingResponsiveTitle": "Responsive Navigation",
+  "@onboardingResponsiveTitle": {
+    "description": "Onboarding responsive title"
+  },
+
+  "onboardingResponsiveDescription": "Adaptive navigation that works seamlessly across mobile, tablet, and desktop devices.",
+  "@onboardingResponsiveDescription": {
+    "description": "Onboarding responsive description"
+  },
+
+  "onboardingStateTitle": "State Management",
+  "@onboardingStateTitle": {
+    "description": "Onboarding state management title"
+  },
+
+  "onboardingStateDescription": "Powered by Riverpod for predictable and scalable state management throughout the application.",
+  "@onboardingStateDescription": {
+    "description": "Onboarding state management description"
+  },
+
+  "onboardingFeaturesTitle": "Ready-to-Use Features",
+  "@onboardingFeaturesTitle": {
+    "description": "Onboarding features title"
+  },
+
+  "onboardingFeaturesDescription": "Authentication, forms, file uploads, error handling, and more - all ready to customize for your needs.",
+  "@onboardingFeaturesDescription": {
+    "description": "Onboarding features description"
+  },
+
+  "variants": "Variants",
+  "@variants": {
+    "description": "UI component variants section title"
+  },
+
+  "sizes": "Sizes",
+  "@sizes": {
+    "description": "UI component sizes section title"
+  },
+
+  "states": "States",
+  "@states": {
+    "description": "UI component states section title"
+  },
+
+  "standardTextField": "Standard Text Field",
+  "@standardTextField": {
+    "description": "Standard text field label"
+  },
+
+  "enterSomeText": "Enter some text",
+  "@enterSomeText": {
+    "description": "Text field placeholder"
+  },
+
+  "thisIsHelperText": "This is helper text",
+  "@thisIsHelperText": {
+    "description": "Text field helper text"
+  },
+
+  "filledTextField": "Filled Text Field",
+  "@filledTextField": {
+    "description": "Filled text field label"
+  },
+
+  "multilineTextField": "Multi-line Text Field",
+  "@multilineTextField": {
+    "description": "Multi-line text field label"
+  },
+
+  "enterMultipleLinesOfText": "Enter multiple lines of text",
+  "@enterMultipleLinesOfText": {
+    "description": "Multi-line text field placeholder"
+  },
+
+  "disabledTextField": "Disabled Text Field",
+  "@disabledTextField": {
+    "description": "Disabled text field label"
+  },
+
+  "filled": "Filled",
+  "@filled": {
+    "description": "Filled variant label"
+  },
+
+  "outlined": "Outlined",
+  "@outlined": {
+    "description": "Outlined variant label"
+  },
+
+  "suggestion": "Suggestion",
+  "@suggestion": {
+    "description": "Suggestion chip label"
+  },
+
+  "filter": "Filter",
+  "@filter": {
+    "description": "Filter chip label"
+  },
+
+  "withIcons": "With Icons",
+  "@withIcons": {
+    "description": "Components with icons section title"
+  },
+
+  "withAvatar": "With Avatar",
+  "@withAvatar": {
+    "description": "Chip with avatar label"
+  },
+
+  "deletable": "Deletable",
+  "@deletable": {
+    "description": "Deletable chip label"
+  },
+
+  "types": "Types",
+  "@types": {
+    "description": "Component types section title"
+  },
+
+  "avatarGroup": "Avatar Group",
+  "@avatarGroup": {
+    "description": "Avatar group section title"
+  },
+
+  "fileUploadedSuccessfully": "File uploaded successfully!",
+  "@fileUploadedSuccessfully": {
+    "description": "File upload success message"
+  },
+
+  "imageUploadedSuccessfully": "Image uploaded successfully!",
+  "@imageUploadedSuccessfully": {
+    "description": "Image upload success message"
+  },
+
+  "documentUploadedSuccessfully": "Document uploaded successfully!",
+  "@documentUploadedSuccessfully": {
+    "description": "Document upload success message"
+  },
+
+  "customFileUploadedSuccessfully": "Custom file uploaded successfully!",
+  "@customFileUploadedSuccessfully": {
+    "description": "Custom file upload success message"
+  },
+
+  "fileUploadedNoPreview": "File uploaded (no preview)!",
+  "@fileUploadedNoPreview": {
+    "description": "File upload success without preview"
+  },
+
+  "images": "Images",
+  "@images": {
+    "description": "Images section label"
+  },
+
+  "documents": "Documents",
+  "@documents": {
+    "description": "Documents section label"
+  },
+
+  "imageUpload": "Image Upload",
+  "@imageUpload": {
+    "description": "Image upload section title"
+  },
+
+  "imageUploadDescription": "Upload image files only (JPG, PNG, GIF, WebP)",
+  "@imageUploadDescription": {
+    "description": "Image upload section description"
+  },
+
+  "documentUpload": "Document Upload",
+  "@documentUpload": {
+    "description": "Document upload section title"
+  },
+
+  "documentUploadDescription": "Upload document files (PDF, DOC, DOCX, TXT)",
+  "@documentUploadDescription": {
+    "description": "Document upload section description"
+  },
+
+  "multipleFileUpload": "Multiple File Upload",
+  "@multipleFileUpload": {
+    "description": "Multiple file upload section title"
+  },
+
+  "multipleFileUploadDescription": "Upload multiple files at once",
+  "@multipleFileUploadDescription": {
+    "description": "Multiple file upload section description"
+  },
+
+  "generalFileUpload": "General File Upload",
+  "@generalFileUpload": {
+    "description": "General file upload section title"
+  },
+
+  "generalFileUploadDescription": "Upload any type of file with size limit",
+  "@generalFileUploadDescription": {
+    "description": "General file upload section description"
+  },
+
+  "noPreviewUpload": "No Preview Upload",
+  "@noPreviewUpload": {
+    "description": "No preview upload section title"
+  },
+
+  "noPreviewUploadDescription": "File upload without showing selected files",
+  "@noPreviewUploadDescription": {
+    "description": "No preview upload section description"
+  },
+
+  "customExtensions": "Custom Extensions",
+  "@customExtensions": {
+    "description": "Custom extensions upload section title"
+  },
+
+  "customExtensionsDescription": "Upload only specific file types",
+  "@customExtensionsDescription": {
+    "description": "Custom extensions upload section description"
+  },
+
+  "dropAnyFileHere": "Drop any file here (max 5MB)",
+  "@dropAnyFileHere": {
+    "description": "General file drop zone hint"
+  },
+
+  "dropMultipleFilesHere": "Drop multiple files here (max 2MB each)",
+  "@dropMultipleFilesHere": {
+    "description": "Multiple file drop zone hint"
+  },
+
+  "dropJSONXMLCSVFiles": "Drop JSON, XML, or CSV files here",
+  "@dropJSONXMLCSVFiles": {
+    "description": "Custom extension file drop zone hint"
+  },
+
+  "uploadFilesWithoutPreview": "Upload files without preview",
+  "@uploadFilesWithoutPreview": {
+    "description": "No preview upload hint"
+  },
+
+  "uploadStatistics": "Upload Statistics",
+  "@uploadStatistics": {
+    "description": "Upload statistics section title"
+  },
+
+  "totalFiles": "Total Files",
+  "@totalFiles": {
+    "description": "Total files statistic label"
+  },
+
+  "totalSize": "Total Size",
+  "@totalSize": {
+    "description": "Total size statistic label"
+  },
+
+  "clearAllFiles": "Clear All Files",
+  "@clearAllFiles": {
+    "description": "Clear all files button label"
+  },
+
+  "allFilesCleared": "All files cleared!",
+  "@allFilesCleared": {
+    "description": "All files cleared success message"
+  },
+
+  "multipleFilesUploadedSuccessfully": "{count, plural, =1{1 file uploaded successfully!} other{{count} files uploaded successfully!}}",
+  "@multipleFilesUploadedSuccessfully": {
+    "description": "Multiple files upload success message",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "errorShowcase": "Error Showcase",
+  "@errorShowcase": {
+    "description": "Error showcase context name"
+  },
+
+  "errorPages": "Error Pages",
+  "@errorPages": {
+    "description": "Error pages section title"
+  },
+
+  "errorDialogsSnackbars": "Error Dialogs & Snackbars",
+  "@errorDialogsSnackbars": {
+    "description": "Error dialogs and snackbars section title"
+  },
+
+  "asyncErrorHandling": "Async Error Handling",
+  "@asyncErrorHandling": {
+    "description": "Async error handling section title"
+  },
+
+  "errorBoundaries": "Error Boundaries",
+  "@errorBoundaries": {
+    "description": "Error boundaries section title"
+  },
+
+  "networkErrorMessage": "Network Error Message",
+  "@networkErrorMessage": {
+    "description": "Network error message demo title"
+  },
+
+  "networkErrorMessageDescription": "Shows network error handling",
+  "@networkErrorMessageDescription": {
+    "description": "Network error message demo description"
+  },
+
+  "unauthorizedError": "Unauthorized Error",
+  "@unauthorizedError": {
+    "description": "Unauthorized error demo title"
+  },
+
+  "unauthorizedErrorDescription": "Shows an authentication error",
+  "@unauthorizedErrorDescription": {
+    "description": "Unauthorized error demo description"
+  },
+
+  "apiErrorMessage": "API Error Message",
+  "@apiErrorMessage": {
+    "description": "API error message demo title"
+  },
+
+  "apiErrorMessageDescription": "Shows API error handling",
+  "@apiErrorMessageDescription": {
+    "description": "API error message demo description"
+  },
+
+  "showErrorDialog": "Show Error Dialog",
+  "@showErrorDialog": {
+    "description": "Show error dialog demo title"
+  },
+
+  "showErrorDialogDescription": "Displays a modal error dialog",
+  "@showErrorDialogDescription": {
+    "description": "Show error dialog demo description"
+  },
+
+  "showErrorSnackbar": "Show Error SnackBar",
+  "@showErrorSnackbar": {
+    "description": "Show error snackbar demo title"
+  },
+
+  "showErrorSnackbarDescription": "Shows an error message at the bottom",
+  "@showErrorSnackbarDescription": {
+    "description": "Show error snackbar demo description"
+  },
+
+  "operationFailed": "Operation Failed",
+  "@operationFailed": {
+    "description": "Operation failed error title"
+  },
+
+  "operationFailedMessage": "The requested operation could not be completed. Please try again.",
+  "@operationFailedMessage": {
+    "description": "Operation failed error message"
+  },
+
+  "changesSavedSuccessfully": "Changes saved successfully!",
+  "@changesSavedSuccessfully": {
+    "description": "Changes saved success message"
+  },
+
+  "failedToSaveChanges": "Failed to save changes",
+  "@failedToSaveChanges": {
+    "description": "Failed to save changes error message"
+  },
+
+  "asyncErrorDemo": "Async Error Demo",
+  "@asyncErrorDemo": {
+    "description": "Async error demo dialog title"
+  },
+
+  "asyncErrorHandlingDescription": "Handles errors in async operations",
+  "@asyncErrorHandlingDescription": {
+    "description": "Async error handling demo description"
+  },
+
+  "retryingAsyncOperation": "Retrying async operation...",
+  "@retryingAsyncOperation": {
+    "description": "Retrying async operation message"
+  },
+
+  "retryingOperation": "Retrying operation...",
+  "@retryingOperation": {
+    "description": "Retrying operation message"
+  },
+
+  "featureErrorBoundary": "Feature Error Boundary",
+  "@featureErrorBoundary": {
+    "description": "Feature error boundary demo title"
+  },
+
+  "featureErrorBoundaryDescription": "Wraps a feature with error handling",
+  "@featureErrorBoundaryDescription": {
+    "description": "Feature error boundary demo description"
+  },
+
+  "demoFeature": "Demo Feature",
+  "@demoFeature": {
+    "description": "Demo feature name"
+  },
+
+  "featureErrorDemo": "Feature Error Demo",
+  "@featureErrorDemo": {
+    "description": "Feature error demo dialog title"
+  },
+
+  "errorReporting": "Error Reporting",
+  "@errorReporting": {
+    "description": "Error reporting section title"
+  },
+
+  "reportCustomError": "Report Custom Error",
+  "@reportCustomError": {
+    "description": "Report custom error demo title"
+  },
+
+  "reportCustomErrorDescription": "Demonstrates error reporting",
+  "@reportCustomErrorDescription": {
+    "description": "Report custom error demo description"
+  },
+
+  "errorReportedCheckConsole": "Error reported! Check debug console.",
+  "@errorReportedCheckConsole": {
+    "description": "Error reported success message"
+  },
+
+  "customErrorForDemo": "Custom error for demonstration",
+  "@customErrorForDemo": {
+    "description": "Custom error exception message"
+  },
+
+  "simulatedWidgetErrorForDemo": "Simulated widget error for demonstration",
+  "@simulatedWidgetErrorForDemo": {
+    "description": "Simulated widget error exception message"
+  },
+
+  "socketExceptionFailedHostLookup": "SocketException: Failed host lookup",
+  "@socketExceptionFailedHostLookup": {
+    "description": "Socket exception error message"
+  },
+
+  "redirectingToLogin": "Redirecting to login...",
+  "@redirectingToLogin": {
+    "description": "Redirecting to login message"
+  },
+
+  "thisWidgetWillThrowError": "This widget will throw an error...",
+  "@thisWidgetWillThrowError": {
+    "description": "Widget error demo text"
+  }
+}
