@@ -117,3 +117,17 @@ app.*.symbols
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
+/.idea/.gitignore
+/.idea/compiler.xml
+/.idea/copilot.data.migration.agent.xml
+/.idea/copilot.data.migration.ask2agent.xml
+/.idea/copilot.data.migration.edit.xml
+/.idea/dataSources.xml
+/.idea/gradle.xml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/modules/pennywise.main.iml
+/refresh-project.sh
+/.idea/runConfigurations.xml
+/.idea/springboot.xml
+/.idea/vcs.xml
