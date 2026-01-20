@@ -1,0 +1,632 @@
+openapi: 3.0.3
+info:
+  title: PennyWise API
+  version: 1.0.0
+servers:
+  - url: /api
+tags:
+  - name: Health
+  - name: Books
+  - name: Categories
+  - name: Transactions
+  - name: Summary
+  - name: Export
+
+security:
+  - bearerAuth: [ ]
+
+paths:
+  /health:
+    get:
+      tags: [ Health ]
+      security: [ ]
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: "UP" }
+
+  /v1/books:
+    get:
+      tags: [ Books ]
+      summary: List books for current user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/BookResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [ Books ]
+      summary: Create book (currency locked)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BookResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/books/{bookId}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      tags: [ Books ]
+      summary: Get book
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BookResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [ Books ]
+      summary: Update book (name only; currency locked)
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BookResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/books/{bookId}/categories:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      tags: [ Categories ]
+      summary: List categories for book
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/CategoryResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [ Categories ]
+      summary: Add category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CategoryCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CategoryResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/books/{bookId}/categories/{categoryId}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - $ref: "#/components/parameters/CategoryId"
+      - $ref: "#/components/parameters/IfMatch"
+    patch:
+      tags: [ Categories ]
+      summary: Rename/disable category (disable preferred over delete)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CategoryUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CategoryResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/books/{bookId}/transactions:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - name: from
+        in: query
+        schema: { type: string, format: date }
+      - name: to
+        in: query
+        schema: { type: string, format: date }
+      - name: type
+        in: query
+        schema: { $ref: "#/components/schemas/TransactionType" }
+      - name: categoryId
+        in: query
+        schema: { type: string, format: uuid }
+      - name: q
+        in: query
+        description: Optional note search (Phase 1-ready)
+        schema: { type: string }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      - name: cursor
+        in: query
+        schema: { type: string }
+    get:
+      tags: [ Transactions ]
+      summary: List transactions (cursor pagination)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransactionListResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [ Transactions ]
+      summary: Create transaction (idempotent)
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransactionCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransactionResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/books/{bookId}/transactions/{txId}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - $ref: "#/components/parameters/TxId"
+    get:
+      tags: [ Transactions ]
+      summary: Get transaction
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransactionResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [ Transactions ]
+      summary: Update transaction (optimistic concurrency)
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransactionUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransactionResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+    delete:
+      tags: [ Transactions ]
+      summary: Soft delete transaction (optimistic concurrency)
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/books/{bookId}/balance:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      tags: [ Summary ]
+      summary: Get balance header
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BalanceResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/books/{bookId}/summary/monthly:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - name: month
+        in: query
+        required: true
+        schema:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          example: "2026-01"
+    get:
+      tags: [ Summary ]
+      summary: Monthly summary (income/expense totals + category breakdown)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MonthlySummaryResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/books/{bookId}/exports/csv:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      tags: [ Export ]
+      summary: Create CSV export job (Phase 1 scaffold)
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportCreateResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/books/{bookId}/exports/{exportId}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - $ref: "#/components/parameters/ExportId"
+    get:
+      tags: [ Export ]
+      summary: Get export job status
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/books/{bookId}/exports/{exportId}/download:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - $ref: "#/components/parameters/ExportId"
+    get:
+      tags: [ Export ]
+      summary: Get download URL (Phase 1 placeholder)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: { type: string, example: "https://example.com/presigned-url" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    BookId:
+      name: bookId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    CategoryId:
+      name: categoryId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TxId:
+      name: txId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ExportId:
+      name: exportId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+        example: "\"3\""
+      description: ETag value from prior GET (optimistic concurrency)
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        maxLength: 200
+      description: Prevent duplicate inserts on retries
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    PreconditionFailed:
+      description: Precondition Failed (ETag mismatch)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: "VALIDATION_ERROR" }
+            message: { type: string, example: "Invalid request" }
+            details:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            requestId: { type: string, example: "01HZX..." }
+      required: [ error ]
+
+    TransactionType:
+      type: string
+      enum: [ INCOME, EXPENSE ]
+
+    CategoryType:
+      type: string
+      enum: [ INCOME, EXPENSE ]
+
+    BookCreateRequest:
+      type: object
+      required: [ name, currencyCode, timezone ]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        currencyCode: { type: string, minLength: 3, maxLength: 3, example: "USD" }
+        timezone: { type: string, example: "America/Chicago" }
+        openingBalanceMinor: { type: integer, format: int64, example: 0 }
+
+    BookUpdateRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+
+    BookResponse:
+      type: object
+      required: [ id, name, currencyCode, timezone, openingBalanceMinor, createdAt, updatedAt, version ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        currencyCode: { type: string }
+        timezone: { type: string }
+        openingBalanceMinor: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        deletedAt: { type: string, format: date-time, nullable: true }
+        version: { type: integer, format: int64 }
+
+    CategoryCreateRequest:
+      type: object
+      required: [ type, name ]
+      properties:
+        type: { $ref: "#/components/schemas/CategoryType" }
+        name: { type: string, minLength: 1, maxLength: 60 }
+
+    CategoryUpdateRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        isDisabled: { type: boolean }
+
+    CategoryResponse:
+      type: object
+      required: [ id, bookId, type, name, isDisabled, createdAt, updatedAt, version ]
+      properties:
+        id: { type: string, format: uuid }
+        bookId: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/CategoryType" }
+        name: { type: string }
+        isDisabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        deletedAt: { type: string, format: date-time, nullable: true }
+        version: { type: integer, format: int64 }
+
+    TransactionCreateRequest:
+      type: object
+      required: [ type, amountMinor, occurredOn, categoryId ]
+      properties:
+        type: { $ref: "#/components/schemas/TransactionType" }
+        amountMinor: { type: integer, format: int64, minimum: 1 }
+        occurredOn: { type: string, format: date }
+        categoryId: { type: string, format: uuid }
+        note: { type: string, maxLength: 280, nullable: true }
+
+    TransactionUpdateRequest:
+      type: object
+      properties:
+        type: { $ref: "#/components/schemas/TransactionType" }
+        amountMinor: { type: integer, format: int64, minimum: 1 }
+        occurredOn: { type: string, format: date }
+        categoryId: { type: string, format: uuid }
+        note: { type: string, maxLength: 280, nullable: true }
+
+    TransactionResponse:
+      type: object
+      required: [ id, bookId, type, amountMinor, occurredOn, categoryId, createdAt, updatedAt, version ]
+      properties:
+        id: { type: string, format: uuid }
+        bookId: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/TransactionType" }
+        amountMinor: { type: integer, format: int64 }
+        occurredOn: { type: string, format: date }
+        categoryId: { type: string, format: uuid }
+        note: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        deletedAt: { type: string, format: date-time, nullable: true }
+        version: { type: integer, format: int64 }
+
+    CursorPage_TransactionResponse:
+      type: object
+      required: [ items, nextCursor ]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TransactionResponse" }
+        nextCursor:
+          type: string
+          nullable: true
+
+    TransactionListResponse:
+      type: object
+      required: [ page ]
+      properties:
+        page:
+          $ref: "#/components/schemas/CursorPage_TransactionResponse"
+
+
+    BalanceResponse:
+      type: object
+      required: [ bookId, currencyCode, balanceMinor ]
+      properties:
+        bookId: { type: string, format: uuid }
+        currencyCode: { type: string, example: "USD" }
+        balanceMinor: { type: integer, format: int64 }
+
+    CategoryBreakdownItem:
+      type: object
+      required: [ categoryId, totalMinor ]
+      properties:
+        categoryId: { type: string, format: uuid }
+        totalMinor: { type: integer, format: int64 }
+
+    MonthlySummaryResponse:
+      type: object
+      required: [ bookId, month, currencyCode, incomeTotalMinor, expenseTotalMinor, byCategory ]
+      properties:
+        bookId: { type: string, format: uuid }
+        month: { type: string, example: "2026-01" }
+        currencyCode: { type: string, example: "USD" }
+        incomeTotalMinor: { type: integer, format: int64 }
+        expenseTotalMinor: { type: integer, format: int64 }
+        byCategory:
+          type: array
+          items: { $ref: "#/components/schemas/CategoryBreakdownItem" }
+
+    ExportCreateResponse:
+      type: object
+      required: [ exportId, status ]
+      properties:
+        exportId: { type: string, format: uuid }
+        status: { type: string, example: "PENDING" }
+
+    ExportResponse:
+      type: object
+      required: [ id, bookId, status, createdAt, updatedAt ]
+      properties:
+        id: { type: string, format: uuid }
+        bookId: { type: string, format: uuid }
+        status: { type: string, enum: [ PENDING, RUNNING, COMPLETED, FAILED ] }
+        fileName: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        errorMessage: { type: string, nullable: true }
