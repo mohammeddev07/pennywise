@@ -44,11 +44,11 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
               join fetch t.category c
             where b.id = :bookId
               and t.deletedAt is null
-              and (:fromDate is null or t.occurredOn >= :fromDate)
-              and (:toDate   is null or t.occurredOn <= :toDate)
+              and t.occurredOn >= coalesce(:fromDate, t.occurredOn)
+              and t.occurredOn <= coalesce(:toDate,   t.occurredOn)
               and (:type     is null or t.type = :type)
               and (:categoryId is null or c.id = :categoryId)
-              and (:q is null or (t.note is not null and lower(t.note) like lower(concat('%', :q, '%'))))
+              and (:noteLike is null or (t.note is not null and lower(t.note) like :noteLike))
             order by t.occurredOn desc, t.createdAt desc, t.id desc
             """)
     List<TransactionEntity> listForBookFirstPage(
@@ -57,7 +57,7 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
             @Param("toDate") LocalDate toDate,
             @Param("type") TransactionType type,
             @Param("categoryId") UUID categoryId,
-            @Param("q") String q,
+            @Param("noteLike") String noteLike,
             Pageable pageable
     );
 
@@ -74,7 +74,7 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
               and (:toDate   is null or t.occurredOn <= :toDate)
               and (:type     is null or t.type = :type)
               and (:categoryId is null or c.id = :categoryId)
-              and (:q is null or (t.note is not null and lower(t.note) like lower(concat('%', :q, '%'))))
+              and (:noteLike is null or (t.note is not null and lower(t.note) like :noteLike))
               and (
                    t.occurredOn < :cursorOccurredOn
                 or (t.occurredOn = :cursorOccurredOn and t.createdAt < :cursorCreatedAt)
@@ -88,11 +88,37 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
             @Param("toDate") LocalDate toDate,
             @Param("type") TransactionType type,
             @Param("categoryId") UUID categoryId,
-            @Param("q") String q,
+            @Param("noteLike") String noteLike,
             @Param("cursorOccurredOn") LocalDate cursorOccurredOn,
             @Param("cursorCreatedAt") OffsetDateTime cursorCreatedAt,
             @Param("cursorId") UUID cursorId,
             Pageable pageable
+    );
+
+    @Query("""
+    select
+      coalesce(sum(case when t.type = TransactionType.INCOME then t.amountMinor else 0 end), 0) as incomeTotalMinor,
+      coalesce(sum(case when t.type = TransactionType.EXPENSE then t.amountMinor else 0 end), 0) as expenseTotalMinor
+    from TransactionEntity t
+    where t.deletedAt is null
+      and t.book.id = :bookId
+    """)
+    SummaryTotalsView sumTotalsAll(@Param("bookId") UUID bookId);
+
+    @Query("""
+    select
+      coalesce(sum(case when t.type = TransactionType.INCOME then t.amountMinor else 0 end), 0) as incomeTotalMinor,
+      coalesce(sum(case when t.type = TransactionType.EXPENSE then t.amountMinor else 0 end), 0) as expenseTotalMinor
+    from TransactionEntity t
+    where t.deletedAt is null
+      and t.book.id = :bookId
+      and t.occurredOn >= :fromDate
+      and t.occurredOn <  :toDate
+    """)
+    SummaryTotalsView sumTotalsRange(
+            @Param("bookId") UUID bookId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate
     );
 
 

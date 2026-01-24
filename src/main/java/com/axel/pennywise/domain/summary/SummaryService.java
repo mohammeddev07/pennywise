@@ -26,7 +26,7 @@ public class SummaryService {
 
     @Transactional(readOnly = true)
     public BalanceResponse balance(BookEntity book) {
-        SummaryTotalsView totals = txRepo.sumTotals(book.getId(), null, null);
+        SummaryTotalsView totals = txRepo.sumTotalsAll(book.getId());
 
         long opening = book.getOpeningBalanceMinor();
         long balance = opening + totals.getIncomeTotalMinor() - totals.getExpenseTotalMinor();
@@ -40,7 +40,8 @@ public class SummaryService {
         LocalDate endExclusive = ym.plusMonths(1).atDay(1);
 
         // Use the month window
-        SummaryTotalsView totals = txRepo.sumTotals(book.getId(), start, endExclusive);
+        SummaryTotalsView totals = txRepo.sumTotalsRange(book.getId(), start, endExclusive);
+
 
         List<CategoryBreakdownItem> byCategory = txRepo
                 .sumByCategory(book.getId(), TransactionType.EXPENSE, start, endExclusive)

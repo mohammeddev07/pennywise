@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -77,4 +78,26 @@ public class GlobalExceptionHandler {
         String requestId = MDC.get(RequestIdFilter.MDC_KEY);
         return new ErrorResponse(new ErrorResponse.Error(code, message, details == null ? List.of() : details, requestId));
     }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ErrorResponse> handleMissingHeader(MissingRequestHeaderException ex) {
+        String header = ex.getHeaderName();
+
+        // Special-case If-Match to keep your existing error semantics
+        String code = "MISSING_HEADER";
+        String message = "Missing required header: " + header;
+
+        if ("If-Match".equalsIgnoreCase(header)) {
+            code = "MISSING_IF_MATCH";
+            message = "If-Match header is required";
+        } else if ("Idempotency-Key".equalsIgnoreCase(header)) {
+            code = "MISSING_IDEMPOTENCY_KEY";
+            message = "Idempotency-Key header is required";
+        }
+
+        return ResponseEntity
+                .badRequest()
+                .body(error(code, message, List.of(Map.of("header", header))));
+    }
+
 }

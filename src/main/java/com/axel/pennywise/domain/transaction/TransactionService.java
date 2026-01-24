@@ -20,6 +20,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Slf4j
@@ -64,6 +65,7 @@ public class TransactionService {
     public CursorPage<TransactionEntity> list(TransactionListFilter f) {
         int pageSize = Math.clamp(f.limit(), 1, 200);
         String qNorm = (f.q() == null || f.q().isBlank()) ? null : f.q().trim();
+        String noteLike = (qNorm == null) ? null : "%" + qNorm.toLowerCase(Locale.ROOT) + "%";
 
         TxCursor c = decodeCursorOrNull(f.cursor());
 
@@ -77,7 +79,7 @@ public class TransactionService {
                     f.toDate(),
                     f.type(),
                     f.categoryId(),
-                    qNorm,
+                    noteLike,
                     pageable
             );
         } else {
@@ -87,7 +89,7 @@ public class TransactionService {
                     f.toDate(),
                     f.type(),
                     f.categoryId(),
-                    qNorm,
+                    noteLike,
                     c.occurredOn(),
                     c.createdAt(),
                     c.id(),
