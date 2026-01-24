@@ -1,11 +1,13 @@
 package com.axel.pennywise.api.controller;
 
 import com.axel.pennywise.api.dto.export.ExportCreateResponse;
+import com.axel.pennywise.api.dto.export.ExportDownloadResponse;
 import com.axel.pennywise.api.dto.export.ExportResponse;
 import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.book.BookService;
 import com.axel.pennywise.domain.export.ExportJobEntity;
 import com.axel.pennywise.domain.export.ExportJobRepository;
+import com.axel.pennywise.domain.export.ExportService;
 import com.axel.pennywise.domain.export.ExportStatus;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserService;
@@ -18,7 +20,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -30,6 +31,7 @@ public class ExportController {
     private final UserService userService;
     private final BookService bookService;
     private final ExportJobRepository exportRepo;
+    private final ExportService exportService;
 
     private static final String LOCAL = "local";
 
@@ -90,7 +92,7 @@ public class ExportController {
     }
 
     @GetMapping("/{exportId}/download")
-    public ResponseEntity<Map<String, String>> download(Authentication auth, @PathVariable UUID bookId, @PathVariable UUID exportId) {
+    public ResponseEntity<ExportDownloadResponse> download(Authentication auth, @PathVariable UUID bookId, @PathVariable UUID exportId) {
         UserEntity user = userService.getOrCreate(
                 auth,
                 CurrentUser.subject().orElse(LOCAL),
@@ -98,20 +100,9 @@ public class ExportController {
         );
         bookService.requireOwned(bookId, user);
 
-        ExportJobEntity job = exportRepo.findByIdAndBook_IdAndDeletedAtIsNull(exportId, bookId)
-                .orElseThrow(() -> new ApiException(
-                        HttpStatus.NOT_FOUND, "NOT_FOUND", "Export not found"
-                ));
+        ExportDownloadResponse resp = exportService.getDownloadUrl(bookId, exportId);
+        return ResponseEntity.ok(resp);
 
-        if (job.getStatus() != ExportStatus.COMPLETED) {
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "EXPORT_NOT_READY",
-                    "Export is not ready for download"
-            );
-        }
-
-        return ResponseEntity.ok(Map.of("url", "https://example.com/presigned-url"));
     }
 
 
