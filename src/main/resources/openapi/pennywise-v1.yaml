@@ -2,6 +2,7 @@ openapi: 3.0.3
 info:
   title: PennyWise API
   version: 1.0.0
+  description: Personal expense tracking API with multi-book support, idempotent operations, and optimistic concurrency control
 servers:
   - url: /api
 tags:
@@ -14,6 +15,7 @@ tags:
 
 security:
   - bearerAuth: [ ]
+
 
 paths:
   /health:
@@ -514,17 +516,17 @@ components:
       type: object
       properties:
         name: { type: string, minLength: 1, maxLength: 60 }
-        isDisabled: { type: boolean }
+        disabled: { type: boolean }
 
     CategoryResponse:
       type: object
-      required: [ id, bookId, type, name, isDisabled, createdAt, updatedAt, version ]
+      required: [ id, bookId, type, name, disabled, createdAt, updatedAt, version ]
       properties:
         id: { type: string, format: uuid }
         bookId: { type: string, format: uuid }
         type: { $ref: "#/components/schemas/CategoryType" }
         name: { type: string }
-        isDisabled: { type: boolean }
+        disabled: { type: boolean }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         deletedAt: { type: string, format: date-time, nullable: true }
@@ -630,3 +632,5 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         errorMessage: { type: string, nullable: true }
+
+
