@@ -1,0 +1,2 @@
+# Checkov ignore patterns for non-IaC project
+# This is a Java/Kotlin backend application, not infrastructure code
