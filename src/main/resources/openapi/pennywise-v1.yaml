@@ -14,14 +14,13 @@ tags:
   - name: Export
 
 security:
-  - bearerAuth: [ ]
-
+  - bearerAuth: []
 
 paths:
   /health:
     get:
-      tags: [ Health ]
-      security: [ ]
+      tags: [Health]
+      security: []
       summary: Health check
       responses:
         "200":
@@ -35,7 +34,7 @@ paths:
 
   /v1/books:
     get:
-      tags: [ Books ]
+      tags: [Books]
       summary: List books for current user
       responses:
         "200":
@@ -50,7 +49,7 @@ paths:
                     items: { $ref: "#/components/schemas/BookResponse" }
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
-      tags: [ Books ]
+      tags: [Books]
       summary: Create book (currency locked)
       requestBody:
         required: true
@@ -73,7 +72,7 @@ paths:
     parameters:
       - $ref: "#/components/parameters/BookId"
     get:
-      tags: [ Books ]
+      tags: [Books]
       summary: Get book
       responses:
         "200":
@@ -87,7 +86,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
     patch:
-      tags: [ Books ]
+      tags: [Books]
       summary: Update book (name only; currency locked)
       parameters:
         - $ref: "#/components/parameters/IfMatch"
@@ -113,7 +112,7 @@ paths:
     parameters:
       - $ref: "#/components/parameters/BookId"
     get:
-      tags: [ Categories ]
+      tags: [Categories]
       summary: List categories for book
       responses:
         "200":
@@ -129,7 +128,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
     post:
-      tags: [ Categories ]
+      tags: [Categories]
       summary: Add category
       requestBody:
         required: true
@@ -156,7 +155,7 @@ paths:
       - $ref: "#/components/parameters/CategoryId"
       - $ref: "#/components/parameters/IfMatch"
     patch:
-      tags: [ Categories ]
+      tags: [Categories]
       summary: Rename/disable category (disable preferred over delete)
       requestBody:
         required: true
@@ -204,7 +203,7 @@ paths:
         in: query
         schema: { type: string }
     get:
-      tags: [ Transactions ]
+      tags: [Transactions]
       summary: List transactions (cursor pagination)
       responses:
         "200":
@@ -215,7 +214,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
     post:
-      tags: [ Transactions ]
+      tags: [Transactions]
       summary: Create transaction (idempotent)
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -243,7 +242,7 @@ paths:
       - $ref: "#/components/parameters/BookId"
       - $ref: "#/components/parameters/TxId"
     get:
-      tags: [ Transactions ]
+      tags: [Transactions]
       summary: Get transaction
       responses:
         "200":
@@ -257,7 +256,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
     patch:
-      tags: [ Transactions ]
+      tags: [Transactions]
       summary: Update transaction (optimistic concurrency)
       parameters:
         - $ref: "#/components/parameters/IfMatch"
@@ -280,7 +279,7 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "412": { $ref: "#/components/responses/PreconditionFailed" }
     delete:
-      tags: [ Transactions ]
+      tags: [Transactions]
       summary: Soft delete transaction (optimistic concurrency)
       parameters:
         - $ref: "#/components/parameters/IfMatch"
@@ -295,7 +294,7 @@ paths:
     parameters:
       - $ref: "#/components/parameters/BookId"
     get:
-      tags: [ Summary ]
+      tags: [Summary]
       summary: Get balance header
       responses:
         "200":
@@ -317,7 +316,7 @@ paths:
           pattern: '^\d{4}-\d{2}$'
           example: "2026-01"
     get:
-      tags: [ Summary ]
+      tags: [Summary]
       summary: Monthly summary (income/expense totals + category breakdown)
       responses:
         "200":
@@ -333,7 +332,7 @@ paths:
     parameters:
       - $ref: "#/components/parameters/BookId"
     post:
-      tags: [ Export ]
+      tags: [Export]
       summary: Create CSV export job (Phase 1 scaffold)
       responses:
         "202":
@@ -349,7 +348,7 @@ paths:
       - $ref: "#/components/parameters/BookId"
       - $ref: "#/components/parameters/ExportId"
     get:
-      tags: [ Export ]
+      tags: [Export]
       summary: Get export job status
       responses:
         "200":
@@ -365,7 +364,7 @@ paths:
       - $ref: "#/components/parameters/BookId"
       - $ref: "#/components/parameters/ExportId"
     get:
-      tags: [ Export ]
+      tags: [Export]
       summary: Get download URL (Phase 1 placeholder)
       responses:
         "200":
@@ -414,7 +413,7 @@ components:
       required: true
       schema:
         type: string
-        example: "\"3\""
+        example: '"3"'
       description: ETag value from prior GET (optimistic concurrency)
     IdempotencyKey:
       name: Idempotency-Key
@@ -467,19 +466,19 @@ components:
                 type: object
                 additionalProperties: true
             requestId: { type: string, example: "01HZX..." }
-      required: [ error ]
+      required: [error]
 
     TransactionType:
       type: string
-      enum: [ INCOME, EXPENSE ]
+      enum: [INCOME, EXPENSE]
 
     CategoryType:
       type: string
-      enum: [ INCOME, EXPENSE ]
+      enum: [INCOME, EXPENSE]
 
     BookCreateRequest:
       type: object
-      required: [ name, currencyCode, timezone ]
+      required: [name, currencyCode, timezone]
       properties:
         name: { type: string, minLength: 1, maxLength: 80 }
         currencyCode: { type: string, minLength: 3, maxLength: 3, example: "USD" }
@@ -493,7 +492,8 @@ components:
 
     BookResponse:
       type: object
-      required: [ id, name, currencyCode, timezone, openingBalanceMinor, createdAt, updatedAt, version ]
+      required:
+        [id, name, currencyCode, timezone, openingBalanceMinor, createdAt, updatedAt, version]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -507,7 +507,7 @@ components:
 
     CategoryCreateRequest:
       type: object
-      required: [ type, name ]
+      required: [type, name]
       properties:
         type: { $ref: "#/components/schemas/CategoryType" }
         name: { type: string, minLength: 1, maxLength: 60 }
@@ -520,7 +520,7 @@ components:
 
     CategoryResponse:
       type: object
-      required: [ id, bookId, type, name, disabled, createdAt, updatedAt, version ]
+      required: [id, bookId, type, name, disabled, createdAt, updatedAt, version]
       properties:
         id: { type: string, format: uuid }
         bookId: { type: string, format: uuid }
@@ -534,7 +534,7 @@ components:
 
     TransactionCreateRequest:
       type: object
-      required: [ type, amountMinor, occurredOn, categoryId ]
+      required: [type, amountMinor, occurredOn, categoryId]
       properties:
         type: { $ref: "#/components/schemas/TransactionType" }
         amountMinor: { type: integer, format: int64, minimum: 1 }
@@ -553,7 +553,8 @@ components:
 
     TransactionResponse:
       type: object
-      required: [ id, bookId, type, amountMinor, occurredOn, categoryId, createdAt, updatedAt, version ]
+      required:
+        [id, bookId, type, amountMinor, occurredOn, categoryId, createdAt, updatedAt, version]
       properties:
         id: { type: string, format: uuid }
         bookId: { type: string, format: uuid }
@@ -569,7 +570,7 @@ components:
 
     CursorPage_TransactionResponse:
       type: object
-      required: [ items, nextCursor ]
+      required: [items, nextCursor]
       properties:
         items:
           type: array
@@ -580,15 +581,14 @@ components:
 
     TransactionListResponse:
       type: object
-      required: [ page ]
+      required: [page]
       properties:
         page:
           $ref: "#/components/schemas/CursorPage_TransactionResponse"
 
-
     BalanceResponse:
       type: object
-      required: [ bookId, currencyCode, balanceMinor ]
+      required: [bookId, currencyCode, balanceMinor]
       properties:
         bookId: { type: string, format: uuid }
         currencyCode: { type: string, example: "USD" }
@@ -596,14 +596,14 @@ components:
 
     CategoryBreakdownItem:
       type: object
-      required: [ categoryId, totalMinor ]
+      required: [categoryId, totalMinor]
       properties:
         categoryId: { type: string, format: uuid }
         totalMinor: { type: integer, format: int64 }
 
     MonthlySummaryResponse:
       type: object
-      required: [ bookId, month, currencyCode, incomeTotalMinor, expenseTotalMinor, byCategory ]
+      required: [bookId, month, currencyCode, incomeTotalMinor, expenseTotalMinor, byCategory]
       properties:
         bookId: { type: string, format: uuid }
         month: { type: string, example: "2026-01" }
@@ -616,18 +616,18 @@ components:
 
     ExportCreateResponse:
       type: object
-      required: [ exportId, status ]
+      required: [exportId, status]
       properties:
         exportId: { type: string, format: uuid }
         status: { type: string, example: "PENDING" }
 
     ExportResponse:
       type: object
-      required: [ id, bookId, status, createdAt, updatedAt ]
+      required: [id, bookId, status, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         bookId: { type: string, format: uuid }
-        status: { type: string, enum: [ PENDING, RUNNING, COMPLETED, FAILED ] }
+        status: { type: string, enum: [PENDING, RUNNING, COMPLETED, FAILED] }
         fileName: { type: string, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
