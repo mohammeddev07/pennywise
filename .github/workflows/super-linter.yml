@@ -1,0 +1,28 @@
+name: Super-Linter
+
+on:
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  lint:
+    name: Lint Code Base
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      statuses: write
+    steps:
+        - name: Checkout Code
+          uses: actions/checkout@v4
+          with:
+            # Super-Linter requires the full history to detect changes
+            fetch-depth: 0
+
+        - name: Lint Code Base
+          uses: super-linter/super-linter@v7
+          env:
+            # To report status for each individual linter
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            # Validate all files only on PRs to main branch
+            VALIDATE_ALL_CODEBASE: ${{ github.base_ref == 'main' }}
