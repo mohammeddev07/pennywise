@@ -26,3 +26,28 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Validate all files only on PRs to main branch
           VALIDATE_ALL_CODEBASE: ${{ github.base_ref == 'main' }}
+          LOG_LEVEL: NOTICE
+          # Disable linters not applicable to Java backend
+          VALIDATE_CHECKOV: false
+          VALIDATE_JSCPD: false
+          VALIDATE_CLOJURE: false
+          VALIDATE_COFFEESCRIPT: false
+          VALIDATE_CSHARP: false
+          VALIDATE_ENV: false
+          VALIDATE_GHERKIN: false
+          VALIDATE_JAVASCRIPT_PRETTIER: false
+          VALIDATE_JSONNET: false
+          VALIDATE_KOTLIN: false
+          VALIDATE_LUA: false
+          VALIDATE_PERL: false
+          VALIDATE_PHP: false
+          VALIDATE_POWERSHELL: false
+          VALIDATE_PROTOBUF: false
+          VALIDATE_RUBY: false
+          VALIDATE_RUST: false
+          VALIDATE_SCALAFMT: false
+          VALIDATE_SHELL_SHFMT: false
+          VALIDATE_SNAKEMAKE: false
+          VALIDATE_SWIFT: false
+          VALIDATE_TERRAFORM: false
+          VALIDATE_TYPESCRIPT_PRETTIER: false

@@ -1,0 +1,9 @@
+node_modules
+build
+dist
+.gradle
+.idea
+.git
+*.jar
+*.class
+target
