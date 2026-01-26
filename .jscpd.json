@@ -1,13 +1,7 @@
 {
   "threshold": 100,
   "minTokens": 50,
-  "ignorePatterns": [
-    "node_modules",
-    "build",
-    "dist",
-    ".git",
-    ".gradle"
-  ],
+  "ignorePatterns": ["node_modules", "build", "dist", ".git", ".gradle"],
   "exclude": [
     "**/*.md",
     "**/README*",
