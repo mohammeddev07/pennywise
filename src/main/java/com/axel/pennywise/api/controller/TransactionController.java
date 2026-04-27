@@ -125,11 +125,12 @@ public class TransactionController {
 
         TransactionEntity tx = txService.create(book, category, req.type(), req.amountMinor(), req.occurredOn(), req.note());
 
-        TransactionResponse body = toResponse(tx);
+        TransactionEntity initializedTx = reloadTransaction(bookId, tx.getId());
+        TransactionResponse body = toResponse(initializedTx);
 
         idem.storeResponse(user.getId(), idempotencyKey, pseudoRequestBody, 201, body.toString());
 
-        return ResponseEntity.status(201).eTag(etag(tx.getVersion())).body(body);
+        return ResponseEntity.status(201).eTag(etag(initializedTx.getVersion())).body(body);
     }
 
     @GetMapping("/{txId}")
@@ -173,8 +174,9 @@ public class TransactionController {
 
         // Apply updates
         TransactionEntity updated = txService.update(tx, req);
+        TransactionEntity initializedTx = reloadTransaction(bookId, updated.getId());
 
-        return ResponseEntity.ok().eTag(etag(updated.getVersion())).body(toResponse(updated));
+        return ResponseEntity.ok().eTag(etag(initializedTx.getVersion())).body(toResponse(initializedTx));
     }
 
     @DeleteMapping("/{txId}")
@@ -215,6 +217,11 @@ public class TransactionController {
                 tx.getDeletedAt(),
                 tx.getVersion() == null ? 0 : tx.getVersion()
         );
+    }
+
+    private TransactionEntity reloadTransaction(UUID bookId, UUID txId) {
+        return txRepo.findByIdAndBook_IdAndDeletedAtIsNull(txId, bookId)
+                .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Transaction was saved but could not be reloaded"));
     }
 
     private String etag(Long version) {

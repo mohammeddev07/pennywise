@@ -171,6 +171,7 @@ class TransactionControllerTest {
 		TransactionEntity created = tx(transactionId, 0L);
 		when(transactionService.create(eq(testBook), eq(testCategory), eq(TransactionType.EXPENSE), eq(3000L), any(), eq("Lunch")))
 				.thenReturn(created);
+		when(transactionRepository.findByIdAndBook_IdAndDeletedAtIsNull(transactionId, bookId)).thenReturn(Optional.of(created));
 
 		TransactionCreateRequest req = new TransactionCreateRequest(
 				TransactionType.EXPENSE,
@@ -191,6 +192,7 @@ class TransactionControllerTest {
 		verify(bookService).requireOwned(bookId, testUser);
 		verify(categoryRepository).findByIdAndBook_IdAndDeletedAtIsNull(categoryId, bookId);
 		verify(transactionService).create(eq(testBook), eq(testCategory), eq(TransactionType.EXPENSE), eq(3000L), eq(LocalDate.of(2026, 1, 1)), eq("Lunch"));
+		verify(transactionRepository).findByIdAndBook_IdAndDeletedAtIsNull(transactionId, bookId);
 		verify(idempotencyService).storeResponse(eq(testUser.getId()), eq("idem-key-1"), anyString(), eq(201), anyString());
 
 		verifyNoMoreInteractions(userService, bookService, categoryRepository, transactionRepository, transactionService, idempotencyService);
@@ -243,6 +245,8 @@ class TransactionControllerTest {
 		TransactionEntity updated = tx(transactionId, 1L);
 		updated.setNote("Updated note");
 		when(transactionService.update(eq(existing), any())).thenReturn(updated);
+		when(transactionRepository.findByIdAndBook_IdAndDeletedAtIsNull(transactionId, bookId))
+				.thenReturn(Optional.of(existing), Optional.of(updated));
 
 		TransactionUpdateRequest req = new TransactionUpdateRequest(null, null, null, null, "Updated note");
 
@@ -254,7 +258,7 @@ class TransactionControllerTest {
 
 		verify(userService).getOrCreate(any(), any(), any());
 		verify(bookService).requireOwned(bookId, testUser);
-		verify(transactionRepository).findByIdAndBook_IdAndDeletedAtIsNull(transactionId, bookId);
+		verify(transactionRepository, times(2)).findByIdAndBook_IdAndDeletedAtIsNull(transactionId, bookId);
 		verify(transactionService).update(eq(existing), any());
 		verifyNoMoreInteractions(userService, bookService, categoryRepository, transactionRepository, transactionService, idempotencyService);
 	}
