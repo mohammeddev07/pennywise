@@ -79,7 +79,7 @@ class TransactionControllerTest {
 		objectMapper = new ObjectMapper().findAndRegisterModules();
 
 		TransactionController controller = new TransactionController(
-				userService, bookService, categoryRepository, transactionRepository, transactionService, idempotencyService, objectMapper
+				userService, bookService, categoryRepository, transactionRepository, transactionService, idempotencyService
 		);
 
 		mockMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -169,7 +169,7 @@ class TransactionControllerTest {
 		when(categoryRepository.findByIdAndBook_IdAndDeletedAtIsNull(categoryId, bookId)).thenReturn(Optional.of(testCategory));
 
 		TransactionEntity created = tx(transactionId, 0L);
-		when(transactionService.create(eq(testBook), eq(testCategory), eq(TransactionType.EXPENSE), eq(3000L), any(), eq("Lunch"), isNull(), isNull(), isNull()))
+		when(transactionService.create(eq(testBook), eq(testCategory), eq(TransactionType.EXPENSE), eq(3000L), any(), eq("Lunch")))
 				.thenReturn(created);
 
 		TransactionCreateRequest req = new TransactionCreateRequest(
@@ -190,7 +190,7 @@ class TransactionControllerTest {
 		verify(idempotencyService).tryGetPrior(eq(testUser.getId()), eq("idem-key-1"), anyString());
 		verify(bookService).requireOwned(bookId, testUser);
 		verify(categoryRepository).findByIdAndBook_IdAndDeletedAtIsNull(categoryId, bookId);
-		verify(transactionService).create(eq(testBook), eq(testCategory), eq(TransactionType.EXPENSE), eq(3000L), eq(LocalDate.of(2026, 1, 1)), eq("Lunch"), isNull(), isNull(), isNull());
+		verify(transactionService).create(eq(testBook), eq(testCategory), eq(TransactionType.EXPENSE), eq(3000L), eq(LocalDate.of(2026, 1, 1)), eq("Lunch"));
 		verify(idempotencyService).storeResponse(eq(testUser.getId()), eq("idem-key-1"), anyString(), eq(201), anyString());
 
 		verifyNoMoreInteractions(userService, bookService, categoryRepository, transactionRepository, transactionService, idempotencyService);

@@ -29,7 +29,7 @@ public class IdempotencyService {
             // If request_hash differs, you typically return 409. We'll enforce later.
             if (!row.getRequestHash().equals(requestHash)) {
                 log.warn("Idempotency conflict: userId={}, key={}, prior_hash does not match current request", userId, key);
-                return new PriorResponse(409, "{\"error\":{\"code\":\"IDEMPOTENCY_KEY_REUSED\",\"message\":\"Idempotency-Key reused with different request\"}}");
+                return new PriorResponse(409, "{\"error\":{\"code\":\"IDEMPOTENCY_CONFLICT\",\"message\":\"Idempotency-Key reused with different request\"}}");
             }
             int code = row.getResponseCode() == null ? 409 : row.getResponseCode();
             log.info("Idempotency match: userId={}, key={}, returning prior response with status={}", userId, key, code);

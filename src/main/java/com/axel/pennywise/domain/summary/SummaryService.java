@@ -4,7 +4,6 @@ import com.axel.pennywise.api.dto.summary.BalanceResponse;
 import com.axel.pennywise.api.dto.summary.CategoryBreakdownItem;
 import com.axel.pennywise.api.dto.summary.MonthlySummaryResponse;
 import com.axel.pennywise.domain.book.BookEntity;
-import com.axel.pennywise.domain.budget.BudgetRepository;
 import com.axel.pennywise.domain.transaction.TransactionRepository;
 import com.axel.pennywise.domain.transaction.TransactionType;
 import com.axel.pennywise.exception.ApiException;
@@ -17,9 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -27,7 +23,6 @@ import java.util.stream.Collectors;
 public class SummaryService {
 
     private final TransactionRepository txRepo;
-    private final BudgetRepository budgetRepo;
 
     @Transactional(readOnly = true)
     public BalanceResponse balance(BookEntity book) {
@@ -48,19 +43,10 @@ public class SummaryService {
         SummaryTotalsView totals = txRepo.sumTotalsRange(book.getId(), start, endExclusive);
 
 
-        Map<UUID, Long> budgetsByCategory = budgetRepo.findAllActiveForBookAndMonth(book.getId(), start).stream()
-                .collect(Collectors.toMap(b -> b.getCategory().getId(), b -> b.getAmountMinor(), Long::sum));
-
         List<CategoryBreakdownItem> byCategory = txRepo
                 .sumByCategory(book.getId(), TransactionType.EXPENSE, start, endExclusive)
                 .stream()
-                .map(ct -> new CategoryBreakdownItem(
-                        ct.categoryId(),
-                        ct.categoryName(),
-                        ct.type(),
-                        ct.totalMinor(),
-                        budgetsByCategory.get(ct.categoryId())
-                ))
+                .map(ct -> new CategoryBreakdownItem(ct.categoryId(), ct.totalMinor()))
                 .toList();
 
         return new MonthlySummaryResponse(

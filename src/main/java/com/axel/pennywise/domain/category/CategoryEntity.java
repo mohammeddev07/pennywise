@@ -33,10 +33,4 @@ public class CategoryEntity extends AuditedEntity {
 
     @Column(nullable = false)
     private boolean isDisabled = false;
-
-    @Column
-    private String icon;
-
-    @Column(length = 7)
-    private String color;
 }

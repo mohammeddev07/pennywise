@@ -9,7 +9,7 @@ public record AppProperties(
         Export export
 ) {
     public record Security(boolean authEnabled, Jwt jwt) {
-        public record Jwt(String issuerUri, String audience, String issuer, String localSecret, int accessTokenTtlMinutes) {}
+        public record Jwt(String issuerUri, String audience) {}
     }
 
     public record Pagination(int defaultLimit, int maxLimit) {}

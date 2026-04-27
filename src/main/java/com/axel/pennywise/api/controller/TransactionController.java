@@ -14,7 +14,6 @@ import com.axel.pennywise.domain.transaction.TransactionType;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserService;
 import com.axel.pennywise.security.CurrentUser;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -40,7 +39,6 @@ public class TransactionController {
     private final TransactionRepository txRepo;
     private final TransactionService txService;
     private final IdempotencyService idem;
-    private final ObjectMapper objectMapper;
 
     private static final String LOCAL = "local";
     private static final String NOT_FOUND = "NOT_FOUND";
@@ -108,20 +106,16 @@ public class TransactionController {
                 CurrentUser.email().orElse(null)
         );
 
-        String requestBodyJson = writeJson(req);
-        var prior = idem.tryGetPrior(user.getId(), idempotencyKey, requestBodyJson);
+        // Phase 1 idempotency skeleton: if prior exists, return 409 until Phase 2 replay is implemented.
+        String pseudoRequestBody = req.toString();
+        var prior = idem.tryGetPrior(user.getId(), idempotencyKey, pseudoRequestBody);
         if (prior.isPresent()) {
-            IdempotencyService.PriorResponse replay = prior.get();
-            if (replay.statusCode() == 409) {
-                throw new ApiException(
-                        HttpStatus.CONFLICT,
-                        "IDEMPOTENCY_KEY_REUSED",
-                        "Idempotency-Key reused with a different request",
-                        List.of(Map.of("idempotencyKey", idempotencyKey))
-                );
-            }
-            TransactionResponse replayed = readTransactionResponse(replay.body());
-            return ResponseEntity.status(replay.statusCode()).eTag(etag(replayed.version())).body(replayed);
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "IDEMPOTENCY_REPLAY_NOT_IMPLEMENTED",
+                    "Duplicate request detected for Idempotency-Key; response replay will be implemented in Phase 2",
+                    List.of(Map.of("idempotencyKey", idempotencyKey))
+            );
         }
 
         BookEntity book = bookService.requireOwned(bookId, user);
@@ -129,21 +123,11 @@ public class TransactionController {
         CategoryEntity category = categoryRepo.findByIdAndBook_IdAndDeletedAtIsNull(req.categoryId(), bookId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, NOT_FOUND, "Category not found"));
 
-        TransactionEntity tx = txService.create(
-                book,
-                category,
-                req.type(),
-                req.amountMinor(),
-                req.resolvedOccurredOn(),
-                req.note(),
-                req.title(),
-                req.paymentMethod(),
-                req.occurredAt()
-        );
+        TransactionEntity tx = txService.create(book, category, req.type(), req.amountMinor(), req.occurredOn(), req.note());
 
         TransactionResponse body = toResponse(tx);
 
-        idem.storeResponse(user.getId(), idempotencyKey, requestBodyJson, 201, writeJson(body));
+        idem.storeResponse(user.getId(), idempotencyKey, pseudoRequestBody, 201, body.toString());
 
         return ResponseEntity.status(201).eTag(etag(tx.getVersion())).body(body);
     }
@@ -224,15 +208,7 @@ public class TransactionController {
                 tx.getType(),
                 tx.getAmountMinor(),
                 tx.getOccurredOn(),
-                tx.getOccurredAt(),
-                tx.getTitle(),
                 tx.getCategory().getId(),
-                new TransactionCategoryRef(
-                        tx.getCategory().getId(),
-                        tx.getCategory().getName(),
-                        tx.getCategory().getType()
-                ),
-                tx.getPaymentMethod(),
                 tx.getNote(),
                 tx.getCreatedAt(),
                 tx.getUpdatedAt(),
@@ -273,20 +249,5 @@ public class TransactionController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_IF_MATCH", "Invalid If-Match value");
         }
     }
-
-    private String writeJson(Object value) {
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (Exception e) {
-            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Failed to serialize response");
-        }
-    }
-
-    private TransactionResponse readTransactionResponse(String json) {
-        try {
-            return objectMapper.readValue(json, TransactionResponse.class);
-        } catch (Exception e) {
-            throw new ApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_REPLAY_UNAVAILABLE", "Stored idempotency response is unavailable");
-        }
-    }
 }
+

@@ -7,12 +7,9 @@ servers:
   - url: /api
 tags:
   - name: Health
-  - name: Auth
-  - name: Users
   - name: Books
   - name: Categories
   - name: Transactions
-  - name: Budgets
   - name: Summary
   - name: Export
 
@@ -34,57 +31,6 @@ paths:
                 type: object
                 properties:
                   status: { type: string, example: "UP" }
-
-  /v1/auth/signup:
-    post:
-      tags: [Auth]
-      security: []
-      summary: Sign up with email and password
-      description: Creates a backend-owned user, stores a BCrypt password hash, and returns a bearer JWT for protected APIs.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/AuthRequest" }
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AuthResponse" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "409": { $ref: "#/components/responses/Conflict" }
-
-  /v1/auth/login:
-    post:
-      tags: [Auth]
-      security: []
-      summary: Log in with email and password
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/LoginRequest" }
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AuthResponse" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-
-  /v1/me:
-    get:
-      tags: [Users]
-      summary: Get current user profile
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/MeResponse" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
 
   /v1/books:
     get:
@@ -231,81 +177,6 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "412": { $ref: "#/components/responses/PreconditionFailed" }
 
-  /v1/books/{bookId}/budgets:
-    parameters:
-      - $ref: "#/components/parameters/BookId"
-      - name: month
-        in: query
-        required: true
-        schema:
-          type: string
-          pattern: '^\d{4}-\d{2}$'
-          example: "2026-01"
-    get:
-      tags: [Budgets]
-      summary: List monthly category budgets with spend
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items: { $ref: "#/components/schemas/BudgetResponse" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-
-  /v1/books/{bookId}/budgets/{categoryId}:
-    parameters:
-      - $ref: "#/components/parameters/BookId"
-      - $ref: "#/components/parameters/CategoryId"
-      - name: month
-        in: query
-        required: true
-        schema:
-          type: string
-          pattern: '^\d{4}-\d{2}$'
-          example: "2026-01"
-    put:
-      tags: [Budgets]
-      summary: Create or update a monthly category budget
-      parameters:
-        - $ref: "#/components/parameters/OptionalIfMatch"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/BudgetUpsertRequest" }
-      responses:
-        "200":
-          description: OK
-          headers:
-            ETag:
-              schema: { type: string }
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BudgetResponse" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "412": { $ref: "#/components/responses/PreconditionFailed" }
-    delete:
-      tags: [Budgets]
-      summary: Remove a monthly category budget
-      parameters:
-        - $ref: "#/components/parameters/OptionalIfMatch"
-      responses:
-        "204":
-          description: Deleted
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "412": { $ref: "#/components/responses/PreconditionFailed" }
-
   /v1/books/{bookId}/transactions:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -323,7 +194,7 @@ paths:
         schema: { type: string, format: uuid }
       - name: q
         in: query
-        description: Optional search across title, note, category name, payment method, type, and amount text
+        description: Optional note search (Phase 1-ready)
         schema: { type: string }
       - name: limit
         in: query
@@ -544,14 +415,6 @@ components:
         type: string
         example: '"3"'
       description: ETag value from prior GET (optimistic concurrency)
-    OptionalIfMatch:
-      name: If-Match
-      in: header
-      required: false
-      schema:
-        type: string
-        example: '"3"'
-      description: Optional ETag value for optimistic concurrency when updating an existing resource
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -559,7 +422,7 @@ components:
       schema:
         type: string
         maxLength: 200
-      description: Prevent duplicate inserts on retries. Reusing the same key with the same request replays the stored response; reusing it with a different request returns 409.
+      description: Prevent duplicate inserts on retries
 
   responses:
     BadRequest:
@@ -613,43 +476,6 @@ components:
       type: string
       enum: [INCOME, EXPENSE]
 
-    PaymentMethod:
-      type: string
-      enum: [CASH, CARD, BANK_TRANSFER, WALLET, OTHER]
-
-    AuthRequest:
-      type: object
-      required: [email, password]
-      properties:
-        email: { type: string, format: email, maxLength: 320 }
-        password: { type: string, minLength: 8, maxLength: 128 }
-        defaultCurrencyCode: { type: string, pattern: '^[A-Za-z]{3}$', example: "USD" }
-
-    LoginRequest:
-      type: object
-      required: [email, password]
-      properties:
-        email: { type: string, format: email, maxLength: 320 }
-        password: { type: string, maxLength: 128 }
-
-    AuthResponse:
-      type: object
-      required: [accessToken, tokenType, expiresInSeconds, user]
-      properties:
-        accessToken: { type: string }
-        tokenType: { type: string, example: "Bearer" }
-        expiresInSeconds: { type: integer, format: int64, example: 3600 }
-        user: { $ref: "#/components/schemas/MeResponse" }
-
-    MeResponse:
-      type: object
-      required: [id, createdAt]
-      properties:
-        id: { type: string, format: uuid }
-        email: { type: string, format: email, nullable: true }
-        defaultCurrencyCode: { type: string, nullable: true, example: "USD" }
-        createdAt: { type: string, format: date-time }
-
     BookCreateRequest:
       type: object
       required: [name, currencyCode, timezone]
@@ -685,28 +511,22 @@ components:
       properties:
         type: { $ref: "#/components/schemas/CategoryType" }
         name: { type: string, minLength: 1, maxLength: 60 }
-        icon: { type: string, maxLength: 64, nullable: true, example: "utensils" }
-        color: { type: string, pattern: '^#[0-9A-Fa-f]{6}$', nullable: true, example: "#EF4444" }
 
     CategoryUpdateRequest:
       type: object
       properties:
         name: { type: string, minLength: 1, maxLength: 60 }
-        isDisabled: { type: boolean }
-        icon: { type: string, maxLength: 64, nullable: true }
-        color: { type: string, pattern: '^#[0-9A-Fa-f]{6}$', nullable: true }
+        disabled: { type: boolean }
 
     CategoryResponse:
       type: object
-      required: [id, bookId, type, name, isDisabled, createdAt, updatedAt, version]
+      required: [id, bookId, type, name, disabled, createdAt, updatedAt, version]
       properties:
         id: { type: string, format: uuid }
         bookId: { type: string, format: uuid }
         type: { $ref: "#/components/schemas/CategoryType" }
         name: { type: string }
-        isDisabled: { type: boolean }
-        icon: { type: string, nullable: true }
-        color: { type: string, nullable: true }
+        disabled: { type: boolean }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         deletedAt: { type: string, format: date-time, nullable: true }
@@ -714,21 +534,12 @@ components:
 
     TransactionCreateRequest:
       type: object
-      required: [type, amountMinor, categoryId]
+      required: [type, amountMinor, occurredOn, categoryId]
       properties:
         type: { $ref: "#/components/schemas/TransactionType" }
         amountMinor: { type: integer, format: int64, minimum: 1 }
-        occurredOn:
-          type: string
-          format: date
-          description: Backwards-compatible date field. Required when occurredAt is omitted.
-        occurredAt:
-          type: string
-          format: date-time
-          description: Transaction timestamp. If provided, occurredOn is derived from it when occurredOn is absent.
-        title: { type: string, maxLength: 120, nullable: true }
+        occurredOn: { type: string, format: date }
         categoryId: { type: string, format: uuid }
-        paymentMethod: { $ref: "#/components/schemas/PaymentMethod" }
         note: { type: string, maxLength: 280, nullable: true }
 
     TransactionUpdateRequest:
@@ -737,35 +548,20 @@ components:
         type: { $ref: "#/components/schemas/TransactionType" }
         amountMinor: { type: integer, format: int64, minimum: 1 }
         occurredOn: { type: string, format: date }
-        occurredAt: { type: string, format: date-time }
-        title: { type: string, maxLength: 120, nullable: true }
         categoryId: { type: string, format: uuid }
-        paymentMethod: { $ref: "#/components/schemas/PaymentMethod" }
         note: { type: string, maxLength: 280, nullable: true }
-
-    TransactionCategoryRef:
-      type: object
-      required: [id, name, type]
-      properties:
-        id: { type: string, format: uuid }
-        name: { type: string }
-        type: { $ref: "#/components/schemas/CategoryType" }
 
     TransactionResponse:
       type: object
       required:
-        [id, bookId, type, amountMinor, occurredOn, categoryId, category, createdAt, updatedAt, version]
+        [id, bookId, type, amountMinor, occurredOn, categoryId, createdAt, updatedAt, version]
       properties:
         id: { type: string, format: uuid }
         bookId: { type: string, format: uuid }
         type: { $ref: "#/components/schemas/TransactionType" }
         amountMinor: { type: integer, format: int64 }
         occurredOn: { type: string, format: date }
-        occurredAt: { type: string, format: date-time, nullable: true }
-        title: { type: string, nullable: true }
         categoryId: { type: string, format: uuid }
-        category: { $ref: "#/components/schemas/TransactionCategoryRef" }
-        paymentMethod: { $ref: "#/components/schemas/PaymentMethod" }
         note: { type: string, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -790,30 +586,6 @@ components:
         page:
           $ref: "#/components/schemas/CursorPage_TransactionResponse"
 
-    BudgetUpsertRequest:
-      type: object
-      required: [amountMinor]
-      properties:
-        amountMinor: { type: integer, format: int64, minimum: 0 }
-
-    BudgetResponse:
-      type: object
-      required:
-        [id, bookId, categoryId, categoryName, month, amountMinor, spentMinor, remainingMinor, currencyCode, createdAt, updatedAt, version]
-      properties:
-        id: { type: string, format: uuid }
-        bookId: { type: string, format: uuid }
-        categoryId: { type: string, format: uuid }
-        categoryName: { type: string }
-        month: { type: string, example: "2026-01" }
-        amountMinor: { type: integer, format: int64 }
-        spentMinor: { type: integer, format: int64 }
-        remainingMinor: { type: integer, format: int64 }
-        currencyCode: { type: string, example: "USD" }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-        version: { type: integer, format: int64 }
-
     BalanceResponse:
       type: object
       required: [bookId, currencyCode, balanceMinor]
@@ -827,10 +599,7 @@ components:
       required: [categoryId, totalMinor]
       properties:
         categoryId: { type: string, format: uuid }
-        categoryName: { type: string, nullable: true }
-        type: { $ref: "#/components/schemas/CategoryType" }
         totalMinor: { type: integer, format: int64 }
-        budgetMinor: { type: integer, format: int64, nullable: true }
 
     MonthlySummaryResponse:
       type: object

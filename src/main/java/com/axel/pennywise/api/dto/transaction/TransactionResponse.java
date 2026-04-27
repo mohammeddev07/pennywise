@@ -1,6 +1,5 @@
 package com.axel.pennywise.api.dto.transaction;
 
-import com.axel.pennywise.domain.transaction.PaymentMethod;
 import com.axel.pennywise.domain.transaction.TransactionType;
 
 import java.time.LocalDate;
@@ -13,11 +12,7 @@ public record TransactionResponse(
         TransactionType type,
         long amountMinor,
         LocalDate occurredOn,
-        OffsetDateTime occurredAt,
-        String title,
         UUID categoryId,
-        TransactionCategoryRef category,
-        PaymentMethod paymentMethod,
         String note,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,

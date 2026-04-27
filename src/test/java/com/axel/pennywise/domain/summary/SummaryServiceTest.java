@@ -3,7 +3,6 @@ package com.axel.pennywise.domain.summary;
 import com.axel.pennywise.api.dto.summary.BalanceResponse;
 import com.axel.pennywise.api.dto.summary.MonthlySummaryResponse;
 import com.axel.pennywise.domain.book.BookEntity;
-import com.axel.pennywise.domain.budget.BudgetRepository;
 import com.axel.pennywise.domain.transaction.TransactionRepository;
 import com.axel.pennywise.domain.transaction.TransactionType;
 import com.axel.pennywise.exception.ApiException;
@@ -26,7 +25,6 @@ import static org.mockito.Mockito.*;
 class SummaryServiceTest {
 
     @Mock private TransactionRepository txRepo;
-    @Mock private BudgetRepository budgetRepo;
 
     @InjectMocks private SummaryService summaryService;
 
@@ -85,7 +83,6 @@ class SummaryServiceTest {
         when(rent.totalMinor()).thenReturn(3_000L);
 
         when(txRepo.sumTotalsRange(bookId, start, endExclusive)).thenReturn(totals);
-        when(budgetRepo.findAllActiveForBookAndMonth(bookId, start)).thenReturn(List.of());
         when(txRepo.sumByCategory(bookId, TransactionType.EXPENSE, start, endExclusive))
                 .thenReturn(List.of(food, rent));
 
@@ -98,9 +95,8 @@ class SummaryServiceTest {
         assertEquals(7_500L, resp.expenseTotalMinor());
 
         verify(txRepo).sumTotalsRange(bookId, start, endExclusive);
-        verify(budgetRepo).findAllActiveForBookAndMonth(bookId, start);
         verify(txRepo).sumByCategory(bookId, TransactionType.EXPENSE, start, endExclusive);
-        verifyNoMoreInteractions(txRepo, budgetRepo);
+        verifyNoMoreInteractions(txRepo);
     }
 
     @Test
