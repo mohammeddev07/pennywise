@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
@@ -33,12 +34,22 @@ public class TransactionEntity extends AuditedEntity {
     @Column(nullable = false)
     private long amountMinor;
 
+    @Column(length = 120)
+    private String title;
+
     @Column(nullable = false)
     private LocalDate occurredOn;
+
+    @Column(columnDefinition = "timestamptz")
+    private OffsetDateTime occurredAt;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private CategoryEntity category;
+
+    @Enumerated(EnumType.STRING)
+    @Column
+    private PaymentMethod paymentMethod;
 
     @Column
     private String note;

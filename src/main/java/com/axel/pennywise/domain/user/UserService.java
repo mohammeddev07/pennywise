@@ -18,6 +18,13 @@ public class UserService {
     public UserEntity getOrCreate(Authentication auth, String subject, String email) {
         log.debug("Getting or creating user: subject={}, email={}", subject, email);
         return repo.findByAuthSubjectAndDeletedAtIsNull(subject)
+                .map(existing -> {
+                    if (email != null && !email.isBlank() && existing.getEmail() == null) {
+                        existing.setEmail(email);
+                        return repo.save(existing);
+                    }
+                    return existing;
+                })
                 .orElseGet(() -> {
                     log.info("Creating new user: subject={}, email={}", subject, email);
                     UserEntity u = new UserEntity();

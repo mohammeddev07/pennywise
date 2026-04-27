@@ -19,6 +19,9 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.*;
@@ -47,6 +50,12 @@ public class SecurityConfig {
 
     @Value("${app.security.jwt.audience:}")
     private String audience;
+
+    @Value("${app.security.jwt.issuer:pennywise}")
+    private String localIssuer;
+
+    @Value("${app.security.jwt.local-secret:}")
+    private String localSecret;
 
     private boolean isAuthEnabled() {
         if (authEnabledRaw != null && !authEnabledRaw.isBlank()) {
@@ -90,7 +99,8 @@ public class SecurityConfig {
                         "/actuator/info",
                         "/v3/api-docs/**",
                         "/swagger-ui/**",
-                        "/swagger-ui.html"
+                        "/swagger-ui.html",
+                        "/v1/auth/**"
                 ).permitAll()
         );
 
@@ -114,13 +124,21 @@ public class SecurityConfig {
             // not used when auth is disabled
             return token -> { throw new IllegalStateException("JWT decoder not configured (auth disabled)"); };
         }
-        if (issuerUri == null || issuerUri.isBlank()) {
-            throw new IllegalStateException("app.security.jwt.issuer-uri must be set when auth is enabled");
+
+        NimbusJwtDecoder decoder;
+        OAuth2TokenValidator<Jwt> withIssuer;
+
+        if (issuerUri != null && !issuerUri.isBlank()) {
+            decoder = JwtDecoders.fromIssuerLocation(issuerUri);
+            withIssuer = JwtValidators.createDefaultWithIssuer(issuerUri);
+        } else {
+            decoder = NimbusJwtDecoder
+                    .withSecretKey(localSecretKey())
+                    .macAlgorithm(MacAlgorithm.HS256)
+                    .build();
+            withIssuer = JwtValidators.createDefaultWithIssuer(localIssuer);
         }
 
-        NimbusJwtDecoder decoder = JwtDecoders.fromIssuerLocation(issuerUri);
-
-        OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuerUri);
         OAuth2TokenValidator<Jwt> withAudience = new JwtAudienceValidator(audience);
         OAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(withIssuer, withAudience);
 

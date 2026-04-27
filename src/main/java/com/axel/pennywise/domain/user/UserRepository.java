@@ -7,4 +7,5 @@ import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<UserEntity, UUID> {
     Optional<UserEntity> findByAuthSubjectAndDeletedAtIsNull(String authSubject);
+    boolean existsByAuthSubjectAndDeletedAtIsNull(String authSubject);
 }

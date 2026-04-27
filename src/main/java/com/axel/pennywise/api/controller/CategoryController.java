@@ -106,6 +106,8 @@ public class CategoryController {
         c.setType(req.type());
         c.setName(normalized);
         c.setDisabled(false);
+        c.setIcon(normalizeNullable(req.icon()));
+        c.setColor(normalizeNullable(req.color()));
 
         c = categoryRepo.save(c);
         log.info("Category created: categoryId={}, bookId={}, type={}, name={}", c.getId(), bookId, c.getType(), c.getName());
@@ -173,6 +175,14 @@ public class CategoryController {
             c.setDisabled(req.isDisabled());
         }
 
+        if (req.icon() != null) {
+            c.setIcon(normalizeNullable(req.icon()));
+        }
+
+        if (req.color() != null) {
+            c.setColor(normalizeNullable(req.color()));
+        }
+
         c = categoryRepo.save(c);
         log.info("Category updated: categoryId={}, bookId={}, name={}, disabled={}",
                 categoryId, bookId, c.getName(), c.isDisabled());
@@ -187,6 +197,8 @@ public class CategoryController {
                 c.getType(),
                 c.getName(),
                 c.isDisabled(),
+                c.getIcon(),
+                c.getColor(),
                 c.getCreatedAt(),
                 c.getUpdatedAt(),
                 c.getDeletedAt(),
@@ -198,6 +210,12 @@ public class CategoryController {
         if (name == null) return null;
         // Trim and collapse internal whitespace
         return name.trim().replaceAll("\\s+", " ");
+    }
+
+    private String normalizeNullable(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isBlank() ? null : trimmed;
     }
 
     private long parseEtagVersion(String ifMatch) {
