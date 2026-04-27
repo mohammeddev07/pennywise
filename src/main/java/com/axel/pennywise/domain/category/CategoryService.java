@@ -26,30 +26,50 @@ public class CategoryService {
             return;
         }
 
-        List<String> expense = List.of("Food","Transport","Bills","Rent","Shopping","Health","Education","Entertainment","Other");
-        List<String> income = List.of("Salary","Business","Gift","Refund","Other");
+        List<DefaultCategory> expense = List.of(
+                new DefaultCategory("Food", "utensils", "#EF4444"),
+                new DefaultCategory("Transport", "car", "#F97316"),
+                new DefaultCategory("Bills", "receipt", "#EAB308"),
+                new DefaultCategory("Rent", "home", "#84CC16"),
+                new DefaultCategory("Shopping", "shopping-bag", "#22C55E"),
+                new DefaultCategory("Health", "heart-pulse", "#14B8A6"),
+                new DefaultCategory("Education", "graduation-cap", "#3B82F6"),
+                new DefaultCategory("Entertainment", "popcorn", "#8B5CF6"),
+                new DefaultCategory("Other", "circle-ellipsis", "#64748B")
+        );
+        List<DefaultCategory> income = List.of(
+                new DefaultCategory("Salary", "briefcase-business", "#16A34A"),
+                new DefaultCategory("Business", "building-2", "#0891B2"),
+                new DefaultCategory("Gift", "gift", "#DB2777"),
+                new DefaultCategory("Refund", "rotate-ccw", "#2563EB"),
+                new DefaultCategory("Other", "circle-ellipsis", "#64748B")
+        );
 
-        for (String name : expense) {
-            createDefault(book, CategoryType.EXPENSE, name);
+        for (DefaultCategory category : expense) {
+            createDefault(book, CategoryType.EXPENSE, category);
         }
-        for (String name : income) {
-            createDefault(book, CategoryType.INCOME, name);
+        for (DefaultCategory category : income) {
+            createDefault(book, CategoryType.INCOME, category);
         }
 
         log.info("Default categories seeded for book: bookId={}, expenseCount={}, incomeCount={}",
                 book.getId(), expense.size(), income.size());
     }
 
-    private void createDefault(BookEntity book, CategoryType type, String name) {
-        log.debug("Creating default category: bookId={}, type={}, name={}", book.getId(), type, name);
+    private void createDefault(BookEntity book, CategoryType type, DefaultCategory defaultCategory) {
+        log.debug("Creating default category: bookId={}, type={}, name={}", book.getId(), type, defaultCategory.name());
 
         CategoryEntity c = new CategoryEntity();
         c.setBook(book);
         c.setType(type);
-        c.setName(name);
+        c.setName(defaultCategory.name());
         c.setDisabled(false);
+        c.setIcon(defaultCategory.icon());
+        c.setColor(defaultCategory.color());
 
         CategoryEntity saved = repo.save(c);
-        log.debug("Default category created: categoryId={}, type={}, name={}", saved.getId(), type, name);
+        log.debug("Default category created: categoryId={}, type={}, name={}", saved.getId(), type, defaultCategory.name());
     }
+
+    private record DefaultCategory(String name, String icon, String color) {}
 }

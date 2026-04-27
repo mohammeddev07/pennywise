@@ -67,7 +67,7 @@ class IdempotencyServiceTest {
 
         assertTrue(resp.isPresent());
         assertEquals(409, resp.get().statusCode());
-        assertTrue(resp.get().body().contains("IDEMPOTENCY_CONFLICT"));
+        assertTrue(resp.get().body().contains("IDEMPOTENCY_KEY_REUSED"));
 
         ArgumentCaptor<IdempotencyKeyId> idCaptor = ArgumentCaptor.forClass(IdempotencyKeyId.class);
         verify(repo).findById(idCaptor.capture());
@@ -193,4 +193,3 @@ class IdempotencyServiceTest {
         throw new AssertionError("Unable to read " + type.getSimpleName() + " from " + target.getClass().getSimpleName());
     }
 }
-
