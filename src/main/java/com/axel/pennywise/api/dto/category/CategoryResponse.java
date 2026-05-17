@@ -11,6 +11,8 @@ public record CategoryResponse(
         CategoryType type,
         String name,
         boolean isDisabled,
+        String icon,
+        String color,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
         OffsetDateTime deletedAt,

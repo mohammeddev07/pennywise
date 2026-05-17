@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,9 +42,8 @@ public class BookService {
         BookEntity saved = repo.save(b);
         log.info("Book saved: bookId={}, userId={}, name={}", saved.getId(), user.getId(), name);
 
-        // Phase 1: default category seeding hook
         log.debug("Seeding default categories for book: bookId={}", saved.getId());
-        categoryService.seedDefaultCategories(saved);
+        categoryService.seedDefaults(saved);
         log.debug("Default categories seeded: bookId={}", saved.getId());
 
         return saved;
@@ -54,6 +55,13 @@ public class BookService {
         return repo.save(book);
     }
 
+    @Transactional
+    public void softDelete(BookEntity book) {
+        if (book.getDeletedAt() == null) {
+            book.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        }
+        repo.save(book);
+    }
 
     public BookEntity requireOwned(UUID bookId, UserEntity user) {
         log.debug("Verifying book ownership: bookId={}, userId={}", bookId, user.getId());

@@ -76,7 +76,7 @@ class BookServiceTest {
                         Long.valueOf(5000L).equals(b.getOpeningBalanceMinor())
         ));
 
-        verify(categoryService).seedDefaultCategories(saved);
+        verify(categoryService).seedDefaults(saved);
         verifyNoMoreInteractions(repo, categoryService);
     }
 

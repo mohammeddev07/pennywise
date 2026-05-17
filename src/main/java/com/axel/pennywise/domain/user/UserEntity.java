@@ -24,4 +24,7 @@ public class UserEntity extends AuditedEntity {
 
     @Column
     private String email;
+
+    @Column(length = 3)
+    private String defaultCurrencyCode;
 }

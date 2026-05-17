@@ -16,6 +16,8 @@ import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<TransactionEntity, UUID> {
     Optional<TransactionEntity> findByIdAndBook_IdAndDeletedAtIsNull(UUID id, UUID bookId);
+    boolean existsByBook_IdAndDeletedAtIsNull(UUID bookId);
+    boolean existsByBook_IdAndCategory_IdAndDeletedAtIsNull(UUID bookId, UUID categoryId);
 
     @Query("""
                 select t
