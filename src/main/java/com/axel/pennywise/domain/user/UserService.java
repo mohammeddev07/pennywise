@@ -8,6 +8,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Locale;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -42,5 +44,15 @@ public class UserService {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Unauthorized");
         }
         return u;
+    }
+
+    @Transactional
+    public UserEntity updateDefaultCurrency(UserEntity user, String currencyCode) {
+        String normalized = null;
+        if (currencyCode != null && !currencyCode.isBlank()) {
+            normalized = currencyCode.trim().toUpperCase(Locale.ROOT);
+        }
+        user.setDefaultCurrencyCode(normalized);
+        return repo.save(user);
     }
 }

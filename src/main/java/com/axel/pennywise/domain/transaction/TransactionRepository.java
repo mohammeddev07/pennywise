@@ -26,6 +26,10 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
             """)
     Optional<TransactionEntity> findByIdAndBook_IdAndDeletedAtIsNull(@Param("id") UUID id, @Param("bookId") UUID bookId);
 
+    boolean existsByBook_IdAndDeletedAtIsNull(UUID bookId);
+
+    boolean existsByBook_IdAndCategory_IdAndDeletedAtIsNull(UUID bookId, UUID categoryId);
+
     @Query("""
                 select t
                 from TransactionEntity t

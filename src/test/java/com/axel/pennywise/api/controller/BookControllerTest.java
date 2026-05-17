@@ -4,6 +4,7 @@ import com.axel.pennywise.api.dto.book.BookCreateRequest;
 import com.axel.pennywise.api.dto.book.BookUpdateRequest;
 import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.book.BookService;
+import com.axel.pennywise.domain.transaction.TransactionRepository;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,6 +48,7 @@ class BookControllerTest {
 
 	@Mock private BookService bookService;
 	@Mock private UserService userService;
+	@Mock private TransactionRepository transactionRepository;
 
 	private ObjectMapper objectMapper;
 
@@ -57,7 +59,7 @@ class BookControllerTest {
 	void setUp() {
 		objectMapper = new ObjectMapper().findAndRegisterModules();
 
-		BookController controller = new BookController(userService, bookService);
+		BookController controller = new BookController(userService, bookService, transactionRepository);
 
 		mockMvc = MockMvcBuilders.standaloneSetup(controller)
 				.setControllerAdvice(new TestApiExceptionHandler())
@@ -245,6 +247,62 @@ class BookControllerTest {
 		verifyNoMoreInteractions(bookService, userService);
 	}
 
+	@Test
+	void testDeleteBook() throws Exception {
+		when(userService.getOrCreate(any(), any(), any())).thenReturn(testUser);
+
+		BookEntity existing = book(bookId, "Test Book", 0L);
+		when(bookService.requireOwned(bookId, testUser)).thenReturn(existing);
+		when(transactionRepository.existsByBook_IdAndDeletedAtIsNull(bookId)).thenReturn(false);
+
+		mockMvc.perform(delete("/v1/books/{bookId}", bookId).with(auth())
+						.header("If-Match", "\"0\""))
+				.andExpect(status().isNoContent());
+
+		verify(userService).getOrCreate(any(), any(), any());
+		verify(bookService).requireOwned(bookId, testUser);
+		verify(transactionRepository).existsByBook_IdAndDeletedAtIsNull(bookId);
+		verify(bookService).softDelete(existing);
+		verifyNoMoreInteractions(bookService, userService, transactionRepository);
+	}
+
+	@Test
+	void testDeleteBookWithWrongEtag() throws Exception {
+		when(userService.getOrCreate(any(), any(), any())).thenReturn(testUser);
+
+		BookEntity existing = book(bookId, "Test Book", 1L);
+		when(bookService.requireOwned(bookId, testUser)).thenReturn(existing);
+
+		mockMvc.perform(delete("/v1/books/{bookId}", bookId).with(auth())
+						.header("If-Match", "\"0\""))
+				.andExpect(status().isPreconditionFailed());
+
+		verify(userService).getOrCreate(any(), any(), any());
+		verify(bookService).requireOwned(bookId, testUser);
+		verifyNoInteractions(transactionRepository);
+		verify(bookService, never()).softDelete(any());
+		verifyNoMoreInteractions(bookService, userService);
+	}
+
+	@Test
+	void testDeleteBookWithTransactions() throws Exception {
+		when(userService.getOrCreate(any(), any(), any())).thenReturn(testUser);
+
+		BookEntity existing = book(bookId, "Test Book", 0L);
+		when(bookService.requireOwned(bookId, testUser)).thenReturn(existing);
+		when(transactionRepository.existsByBook_IdAndDeletedAtIsNull(bookId)).thenReturn(true);
+
+		mockMvc.perform(delete("/v1/books/{bookId}", bookId).with(auth())
+						.header("If-Match", "\"0\""))
+				.andExpect(status().isConflict());
+
+		verify(userService).getOrCreate(any(), any(), any());
+		verify(bookService).requireOwned(bookId, testUser);
+		verify(transactionRepository).existsByBook_IdAndDeletedAtIsNull(bookId);
+		verify(bookService, never()).softDelete(any());
+		verifyNoMoreInteractions(bookService, userService, transactionRepository);
+	}
+
 	/**
 	 * Minimal test-only exception handler so MockMvc can assert 4xx/412 instead of failing the test
 	 * with ServletException when ApiException is thrown.
@@ -294,4 +352,3 @@ class BookControllerTest {
 		}
 	}
 }
-

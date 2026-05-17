@@ -14,9 +14,8 @@ import java.util.List;
 public class CategoryService {
     private final CategoryRepository repo;
 
-    // Phase 1: This is the correct home for default seeding.
     @Transactional
-    public void seedDefaultCategories(BookEntity book) {
+    public void seedDefaults(BookEntity book) {
         log.debug("Seeding default categories for book: bookId={}", book.getId());
 
         // Only seed if NO categories exist for this book (any rows at all).
@@ -26,50 +25,37 @@ public class CategoryService {
             return;
         }
 
-        List<DefaultCategory> expense = List.of(
-                new DefaultCategory("Food", "utensils", "#EF4444"),
-                new DefaultCategory("Transport", "car", "#F97316"),
-                new DefaultCategory("Bills", "receipt", "#EAB308"),
-                new DefaultCategory("Rent", "home", "#84CC16"),
-                new DefaultCategory("Shopping", "shopping-bag", "#22C55E"),
-                new DefaultCategory("Health", "heart-pulse", "#14B8A6"),
-                new DefaultCategory("Education", "graduation-cap", "#3B82F6"),
-                new DefaultCategory("Entertainment", "popcorn", "#8B5CF6"),
-                new DefaultCategory("Other", "circle-ellipsis", "#64748B")
-        );
-        List<DefaultCategory> income = List.of(
-                new DefaultCategory("Salary", "briefcase-business", "#16A34A"),
-                new DefaultCategory("Business", "building-2", "#0891B2"),
-                new DefaultCategory("Gift", "gift", "#DB2777"),
-                new DefaultCategory("Refund", "rotate-ccw", "#2563EB"),
-                new DefaultCategory("Other", "circle-ellipsis", "#64748B")
+        List<String[]> seeds = List.of(
+                new String[]{"EXPENSE", "Food", "fast-food-outline", "#FFB020"},
+                new String[]{"EXPENSE", "Groceries", "basket-outline", "#34D399"},
+                new String[]{"EXPENSE", "Transport", "car-outline", "#60A5FA"},
+                new String[]{"EXPENSE", "Rent", "home-outline", "#A78BFA"},
+                new String[]{"EXPENSE", "Shopping", "cart-outline", "#F472B6"},
+                new String[]{"EXPENSE", "Utilities", "flash-outline", "#FB923C"},
+                new String[]{"INCOME", "Salary", "cash-outline", "#22C55E"},
+                new String[]{"INCOME", "Freelance", "laptop-outline", "#06B6D4"}
         );
 
-        for (DefaultCategory category : expense) {
-            createDefault(book, CategoryType.EXPENSE, category);
-        }
-        for (DefaultCategory category : income) {
-            createDefault(book, CategoryType.INCOME, category);
-        }
+        List<CategoryEntity> entities = seeds.stream()
+                .map(seed -> createDefault(book, seed))
+                .toList();
 
-        log.info("Default categories seeded for book: bookId={}, expenseCount={}, incomeCount={}",
-                book.getId(), expense.size(), income.size());
+        repo.saveAll(entities);
+
+        log.info("Default categories seeded for book: bookId={}, count={}", book.getId(), entities.size());
     }
 
-    private void createDefault(BookEntity book, CategoryType type, DefaultCategory defaultCategory) {
-        log.debug("Creating default category: bookId={}, type={}, name={}", book.getId(), type, defaultCategory.name());
+    private CategoryEntity createDefault(BookEntity book, String[] seed) {
+        CategoryType type = CategoryType.valueOf(seed[0]);
+        log.debug("Creating default category: bookId={}, type={}, name={}", book.getId(), type, seed[1]);
 
         CategoryEntity c = new CategoryEntity();
         c.setBook(book);
         c.setType(type);
-        c.setName(defaultCategory.name());
+        c.setName(seed[1]);
+        c.setIcon(seed[2]);
+        c.setColor(seed[3]);
         c.setDisabled(false);
-        c.setIcon(defaultCategory.icon());
-        c.setColor(defaultCategory.color());
-
-        CategoryEntity saved = repo.save(c);
-        log.debug("Default category created: categoryId={}, type={}, name={}", saved.getId(), type, defaultCategory.name());
+        return c;
     }
-
-    private record DefaultCategory(String name, String icon, String color) {}
 }

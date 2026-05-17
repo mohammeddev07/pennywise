@@ -7,8 +7,10 @@ import com.axel.pennywise.domain.book.BookService;
 import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryRepository;
 import com.axel.pennywise.domain.category.CategoryType;
+import com.axel.pennywise.domain.transaction.TransactionRepository;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserService;
+import com.axel.pennywise.exception.ApiException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,7 +21,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.OffsetDateTime;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,8 +34,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import static org.mockito.Mockito.*;
 
@@ -45,6 +55,8 @@ class CategoryControllerTest {
     private BookService bookService;
     @Mock
     private CategoryRepository categoryRepository;
+    @Mock
+    private TransactionRepository transactionRepository;
 
     private ObjectMapper objectMapper;
 
@@ -59,8 +71,10 @@ class CategoryControllerTest {
     void setUp() {
         objectMapper = new ObjectMapper().findAndRegisterModules();
 
-        CategoryController controller = new CategoryController(userService, bookService, categoryRepository);
-        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        CategoryController controller = new CategoryController(userService, bookService, categoryRepository, transactionRepository);
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new TestApiExceptionHandler())
+                .build();
 
         bookId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         categoryId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
@@ -212,5 +226,88 @@ class CategoryControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(userService, bookService, categoryRepository);
+    }
+
+    @Test
+    void testDeleteCategory() throws Exception {
+        when(userService.getOrCreate(any(), any(), any())).thenReturn(testUser);
+        when(bookService.requireOwned(bookId, testUser)).thenReturn(testBook);
+        when(categoryRepository.findByIdAndBook_IdAndDeletedAtIsNull(categoryId, bookId))
+                .thenReturn(Optional.of(testCategory));
+        when(transactionRepository.existsByBook_IdAndCategory_IdAndDeletedAtIsNull(bookId, categoryId))
+                .thenReturn(false);
+
+        mockMvc.perform(delete("/v1/books/{bookId}/categories/{categoryId}", bookId, categoryId).with(auth())
+                        .header("If-Match", "\"0\""))
+                .andExpect(status().isNoContent());
+
+        verify(userService).getOrCreate(any(), any(), any());
+        verify(bookService).requireOwned(bookId, testUser);
+        verify(categoryRepository).findByIdAndBook_IdAndDeletedAtIsNull(categoryId, bookId);
+        verify(transactionRepository).existsByBook_IdAndCategory_IdAndDeletedAtIsNull(bookId, categoryId);
+        verify(categoryRepository).save(testCategory);
+        verifyNoMoreInteractions(userService, bookService, categoryRepository, transactionRepository);
+    }
+
+    @Test
+    void testDeleteCategoryInUse() throws Exception {
+        when(userService.getOrCreate(any(), any(), any())).thenReturn(testUser);
+        when(bookService.requireOwned(bookId, testUser)).thenReturn(testBook);
+        when(categoryRepository.findByIdAndBook_IdAndDeletedAtIsNull(categoryId, bookId))
+                .thenReturn(Optional.of(testCategory));
+        when(transactionRepository.existsByBook_IdAndCategory_IdAndDeletedAtIsNull(bookId, categoryId))
+                .thenReturn(true);
+
+        mockMvc.perform(delete("/v1/books/{bookId}/categories/{categoryId}", bookId, categoryId).with(auth())
+                        .header("If-Match", "\"0\""))
+                .andExpect(status().isConflict());
+
+        verify(userService).getOrCreate(any(), any(), any());
+        verify(bookService).requireOwned(bookId, testUser);
+        verify(categoryRepository).findByIdAndBook_IdAndDeletedAtIsNull(categoryId, bookId);
+        verify(transactionRepository).existsByBook_IdAndCategory_IdAndDeletedAtIsNull(bookId, categoryId);
+        verify(categoryRepository, never()).save(any());
+        verifyNoMoreInteractions(userService, bookService, categoryRepository, transactionRepository);
+    }
+
+    @RestControllerAdvice
+    static class TestApiExceptionHandler {
+
+        @ExceptionHandler(ApiException.class)
+        ResponseEntity<Void> handle(ApiException ex) {
+            return ResponseEntity.status(extractStatus(ex)).build();
+        }
+
+        private static HttpStatus extractStatus(ApiException ex) {
+            for (String m : List.of("getStatus", "status", "getHttpStatus", "httpStatus")) {
+                try {
+                    Method method = ex.getClass().getMethod(m);
+                    Object v = method.invoke(ex);
+                    HttpStatus hs = coerceToHttpStatus(v);
+                    if (hs != null) return hs;
+                } catch (Exception ignored) {
+                    // Ignore and try next
+                }
+            }
+            for (String f : List.of("status", "httpStatus")) {
+                try {
+                    Field field = ex.getClass().getDeclaredField(f);
+                    field.setAccessible(true);
+                    Object v = field.get(ex);
+                    HttpStatus hs = coerceToHttpStatus(v);
+                    if (hs != null) return hs;
+                } catch (Exception ignored) {
+                    // Ignore
+                }
+            }
+            return HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+
+        private static HttpStatus coerceToHttpStatus(Object v) {
+            if (v instanceof HttpStatus hs) return hs;
+            if (v instanceof HttpStatusCode hsc) return HttpStatus.valueOf(hsc.value());
+            if (v instanceof Integer i) return HttpStatus.valueOf(i);
+            return null;
+        }
     }
 }

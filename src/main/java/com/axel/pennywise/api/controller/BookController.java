@@ -6,11 +6,14 @@ import com.axel.pennywise.api.dto.book.BookUpdateRequest;
 import com.axel.pennywise.api.dto.common.ItemsResponse;
 import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.book.BookService;
+import com.axel.pennywise.domain.transaction.TransactionRepository;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserService;
+import com.axel.pennywise.exception.ApiException;
 import com.axel.pennywise.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +30,7 @@ public class BookController {
 
     private final UserService userService;
     private final BookService bookService;
+    private final TransactionRepository txRepo;
 
     private static final String LOCAL = "local";
     private static final String LOG_USER_RESOLVED = "User resolved: userId={}";
@@ -107,6 +111,36 @@ public class BookController {
         }
 
         return ResponseEntity.ok().eTag(etag(b.getVersion())).body(toResponse(b));
+    }
+
+    @DeleteMapping("/{bookId}")
+    public ResponseEntity<Void> delete(
+            Authentication auth,
+            @PathVariable UUID bookId,
+            @RequestHeader("If-Match") String ifMatch
+    ) {
+        log.info("DELETE book: bookId={}, ifMatch={}", bookId, ifMatch);
+
+        UserEntity user = userService.getOrCreate(
+                auth,
+                CurrentUser.subject().orElse(LOCAL),
+                CurrentUser.email().orElse(null)
+        );
+        log.debug(LOG_USER_RESOLVED, user.getId());
+
+        BookEntity b = bookService.requireOwned(bookId, user);
+        requireIfMatch(b, ifMatch);
+
+        if (txRepo.existsByBook_IdAndDeletedAtIsNull(bookId)) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "BOOK_HAS_TRANSACTIONS",
+                    "Delete all transactions before deleting this book"
+            );
+        }
+
+        bookService.softDelete(b);
+        return ResponseEntity.noContent().build();
     }
 
     private BookResponse toResponse(BookEntity b) {

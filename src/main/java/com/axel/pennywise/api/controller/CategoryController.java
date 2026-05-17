@@ -8,6 +8,7 @@ import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.book.BookService;
 import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryRepository;
+import com.axel.pennywise.domain.transaction.TransactionRepository;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserService;
 import com.axel.pennywise.exception.ApiException;
@@ -20,6 +21,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,6 +34,7 @@ public class CategoryController {
     private final UserService userService;
     private final BookService bookService;
     private final CategoryRepository categoryRepo;
+    private final TransactionRepository txRepo;
 
     private static final String LOCAL = "local";
     private static final String NOT_FOUND = "NOT_FOUND";
@@ -188,6 +192,42 @@ public class CategoryController {
                 categoryId, bookId, c.getName(), c.isDisabled());
 
         return ResponseEntity.ok().eTag(etag(c.getVersion())).body(toResponse(c));
+    }
+
+    @DeleteMapping("/{categoryId}")
+    public ResponseEntity<Void> delete(
+            Authentication auth,
+            @PathVariable UUID bookId,
+            @PathVariable UUID categoryId,
+            @RequestHeader("If-Match") String ifMatch
+    ) {
+        log.info("DELETE category: categoryId={}, bookId={}, ifMatch={}", categoryId, bookId, ifMatch);
+
+        UserEntity user = userService.getOrCreate(
+                auth,
+                CurrentUser.subject().orElse(LOCAL),
+                CurrentUser.email().orElse(null)
+        );
+        log.debug(LOG_USER_RESOLVED, user.getId());
+
+        bookService.requireOwned(bookId, user);
+        log.debug("Book verified: bookId={}", bookId);
+
+        CategoryEntity c = categoryRepo.findByIdAndBook_IdAndDeletedAtIsNull(categoryId, bookId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, NOT_FOUND, "Category not found"));
+
+        requireIfMatch(c.getVersion(), ifMatch);
+
+        if (txRepo.existsByBook_IdAndCategory_IdAndDeletedAtIsNull(bookId, categoryId)) {
+            throw new ApiException(HttpStatus.CONFLICT, "CATEGORY_IN_USE", "Category has active transactions");
+        }
+
+        if (c.getDeletedAt() == null) {
+            c.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        }
+        categoryRepo.save(c);
+
+        return ResponseEntity.noContent().build();
     }
 
     private CategoryResponse toResponse(CategoryEntity c) {
