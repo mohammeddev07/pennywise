@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.List;
@@ -34,6 +35,20 @@ public class TransactionService {
     private record TxCursor(LocalDate occurredOn, OffsetDateTime createdAt, UUID id) {}
 
     public TransactionEntity create(BookEntity book, CategoryEntity category, TransactionType type, long amountMinor, LocalDate occurredOn, String note) {
+        return create(book, category, type, amountMinor, occurredOn, note, null, null, null);
+    }
+
+    public TransactionEntity create(
+            BookEntity book,
+            CategoryEntity category,
+            TransactionType type,
+            long amountMinor,
+            LocalDate occurredOn,
+            String note,
+            String title,
+            PaymentMethod paymentMethod,
+            OffsetDateTime occurredAt
+    ) {
         log.debug("Creating transaction: bookId={}, categoryId={}, type={}, amountMinor={}, occurredOn={}",
                 book.getId(), category.getId(), type, amountMinor, occurredOn);
 
@@ -42,12 +57,20 @@ public class TransactionService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "amountMinor must be > 0");
         }
 
+        LocalDate resolvedOccurredOn = resolveOccurredOn(occurredOn, occurredAt);
+        if (resolvedOccurredOn == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "occurredOn or occurredAt is required");
+        }
+
         TransactionEntity tx = new TransactionEntity();
         tx.setBook(book);
         tx.setCategory(category);
         tx.setType(type);
         tx.setAmountMinor(amountMinor);
-        tx.setOccurredOn(occurredOn);
+        tx.setOccurredOn(resolvedOccurredOn);
+        tx.setOccurredAt(resolveOccurredAt(book, resolvedOccurredOn, occurredAt));
+        tx.setTitle(normalizeNullable(title));
+        tx.setPaymentMethod(paymentMethod);
         tx.setNote(note);
 
         TransactionEntity saved = repo.save(tx);
@@ -65,7 +88,10 @@ public class TransactionService {
     public CursorPage<TransactionEntity> list(TransactionListFilter f) {
         int pageSize = Math.clamp(f.limit(), 1, 200);
         String qNorm = (f.q() == null || f.q().isBlank()) ? null : f.q().trim();
-        String noteLike = (qNorm == null) ? null : "%" + qNorm.toLowerCase(Locale.ROOT) + "%";
+        String searchLike = (qNorm == null) ? null : "%" + qNorm.toLowerCase(Locale.ROOT) + "%";
+        TransactionType qType = parseEnumOrNull(TransactionType.class, qNorm);
+        PaymentMethod qPaymentMethod = parseEnumOrNull(PaymentMethod.class, qNorm);
+        Long amountSearch = parseLongOrNull(qNorm);
 
         TxCursor c = decodeCursorOrNull(f.cursor());
 
@@ -79,7 +105,10 @@ public class TransactionService {
                     f.toDate(),
                     f.type(),
                     f.categoryId(),
-                    noteLike,
+                    searchLike,
+                    qType,
+                    qPaymentMethod,
+                    amountSearch,
                     pageable
             );
         } else {
@@ -89,7 +118,10 @@ public class TransactionService {
                     f.toDate(),
                     f.type(),
                     f.categoryId(),
-                    noteLike,
+                    searchLike,
+                    qType,
+                    qPaymentMethod,
+                    amountSearch,
                     c.occurredOn(),
                     c.createdAt(),
                     c.id(),
@@ -119,7 +151,16 @@ public class TransactionService {
             tx.setAmountMinor(req.amountMinor());
         }
 
-        if (req.occurredOn() != null) tx.setOccurredOn(req.occurredOn());
+        if (req.occurredAt() != null) {
+            tx.setOccurredAt(req.occurredAt());
+            tx.setOccurredOn(req.occurredAt().toLocalDate());
+        } else if (req.occurredOn() != null) {
+            tx.setOccurredOn(req.occurredOn());
+            tx.setOccurredAt(resolveOccurredAt(tx.getBook(), req.occurredOn(), null));
+        }
+
+        if (req.title() != null) tx.setTitle(normalizeNullable(req.title()));
+        if (req.paymentMethod() != null) tx.setPaymentMethod(req.paymentMethod());
         if (req.note() != null) tx.setNote(req.note());
 
         if (req.categoryId() != null) {
@@ -162,5 +203,46 @@ public class TransactionService {
         }
     }
 
-}
+    private LocalDate resolveOccurredOn(LocalDate occurredOn, OffsetDateTime occurredAt) {
+        if (occurredOn != null) return occurredOn;
+        return occurredAt == null ? null : occurredAt.toLocalDate();
+    }
 
+    private OffsetDateTime resolveOccurredAt(BookEntity book, LocalDate occurredOn, OffsetDateTime occurredAt) {
+        if (occurredAt != null) return occurredAt;
+        ZoneId zoneId = ZoneOffset.UTC;
+        if (book.getTimezone() != null && !book.getTimezone().isBlank()) {
+            try {
+                zoneId = ZoneId.of(book.getTimezone());
+            } catch (Exception ignored) {
+                zoneId = ZoneOffset.UTC;
+            }
+        }
+        return occurredOn.atStartOfDay(zoneId).toOffsetDateTime();
+    }
+
+    private String normalizeNullable(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isBlank() ? null : trimmed;
+    }
+
+    private <E extends Enum<E>> E parseEnumOrNull(Class<E> enumType, String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return Enum.valueOf(enumType, value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private Long parseLongOrNull(String value) {
+        if (value == null || !value.matches("\\d+")) return null;
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+}

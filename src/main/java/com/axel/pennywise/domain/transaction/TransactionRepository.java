@@ -15,7 +15,16 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<TransactionEntity, UUID> {
-    Optional<TransactionEntity> findByIdAndBook_IdAndDeletedAtIsNull(UUID id, UUID bookId);
+    @Query("""
+            select t
+            from TransactionEntity t
+              join fetch t.book b
+              join fetch t.category c
+            where t.id = :id
+              and b.id = :bookId
+              and t.deletedAt is null
+            """)
+    Optional<TransactionEntity> findByIdAndBook_IdAndDeletedAtIsNull(@Param("id") UUID id, @Param("bookId") UUID bookId);
 
     @Query("""
                 select t
@@ -48,7 +57,15 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
               and t.occurredOn <= coalesce(:toDate,   t.occurredOn)
               and (:type     is null or t.type = :type)
               and (:categoryId is null or c.id = :categoryId)
-              and (:noteLike is null or (t.note is not null and lower(t.note) like :noteLike))
+              and (
+                   :searchLike is null
+                or (t.title is not null and lower(t.title) like :searchLike)
+                or (t.note is not null and lower(t.note) like :searchLike)
+                or lower(c.name) like :searchLike
+                or (:qPaymentMethod is not null and t.paymentMethod = :qPaymentMethod)
+                or (:qType is not null and t.type = :qType)
+                or (:amountSearch is not null and t.amountMinor = :amountSearch)
+              )
             order by t.occurredOn desc, t.createdAt desc, t.id desc
             """)
     List<TransactionEntity> listForBookFirstPage(
@@ -57,7 +74,10 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
             @Param("toDate") LocalDate toDate,
             @Param("type") TransactionType type,
             @Param("categoryId") UUID categoryId,
-            @Param("noteLike") String noteLike,
+            @Param("searchLike") String searchLike,
+            @Param("qType") TransactionType qType,
+            @Param("qPaymentMethod") PaymentMethod qPaymentMethod,
+            @Param("amountSearch") Long amountSearch,
             Pageable pageable
     );
 
@@ -74,7 +94,15 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
               and (:toDate   is null or t.occurredOn <= :toDate)
               and (:type     is null or t.type = :type)
               and (:categoryId is null or c.id = :categoryId)
-              and (:noteLike is null or (t.note is not null and lower(t.note) like :noteLike))
+              and (
+                   :searchLike is null
+                or (t.title is not null and lower(t.title) like :searchLike)
+                or (t.note is not null and lower(t.note) like :searchLike)
+                or lower(c.name) like :searchLike
+                or (:qPaymentMethod is not null and t.paymentMethod = :qPaymentMethod)
+                or (:qType is not null and t.type = :qType)
+                or (:amountSearch is not null and t.amountMinor = :amountSearch)
+              )
               and (
                    t.occurredOn < :cursorOccurredOn
                 or (t.occurredOn = :cursorOccurredOn and t.createdAt < :cursorCreatedAt)
@@ -88,7 +116,10 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
             @Param("toDate") LocalDate toDate,
             @Param("type") TransactionType type,
             @Param("categoryId") UUID categoryId,
-            @Param("noteLike") String noteLike,
+            @Param("searchLike") String searchLike,
+            @Param("qType") TransactionType qType,
+            @Param("qPaymentMethod") PaymentMethod qPaymentMethod,
+            @Param("amountSearch") Long amountSearch,
             @Param("cursorOccurredOn") LocalDate cursorOccurredOn,
             @Param("cursorCreatedAt") OffsetDateTime cursorCreatedAt,
             @Param("cursorId") UUID cursorId,
@@ -139,6 +170,8 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
     @Query("""
             select new com.axel.pennywise.domain.summary.CategoryTotal(
               t.category.id,
+              t.category.name,
+              t.category.type,
               coalesce(sum(t.amountMinor), 0)
             )
             from TransactionEntity t
@@ -147,7 +180,7 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
               and t.type = :type
               and t.occurredOn >= :fromDate
               and t.occurredOn <  :toDate
-            group by t.category.id
+            group by t.category.id, t.category.name, t.category.type
             order by coalesce(sum(t.amountMinor), 0) desc
             """)
     List<CategoryTotal> sumByCategory(

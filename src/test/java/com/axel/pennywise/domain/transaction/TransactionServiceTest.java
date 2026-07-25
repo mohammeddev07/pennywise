@@ -258,6 +258,7 @@ class TransactionServiceTest {
                 isNull(), isNull(),
                 isNull(), isNull(),
                 isNull(),
+                isNull(), isNull(), isNull(),
                 any(Pageable.class)
         )).thenReturn(List.of(r1, r2, r3));
 
@@ -283,6 +284,7 @@ class TransactionServiceTest {
                 isNull(), isNull(),
                 isNull(), isNull(),
                 isNull(),
+                isNull(), isNull(), isNull(),
                 any(Pageable.class)
         );
         verifyNoMoreInteractions(repo, categoryRepo);
@@ -298,7 +300,7 @@ class TransactionServiceTest {
         TransactionEntity r2 = tx(UUID.fromString("20000000-0000-0000-0000-000000000002"),
                 LocalDate.of(2026, 1, 9), OffsetDateTime.parse("2026-01-09T10:00:00Z"));
 
-        when(repo.listForBookFirstPage(eq(bookId), isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
+        when(repo.listForBookFirstPage(eq(bookId), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(List.of(r1, r2, tx(UUID.fromString("20000000-0000-0000-0000-000000000003"),
                         LocalDate.of(2026, 1, 8), OffsetDateTime.parse("2026-01-08T10:00:00Z"))));
 
@@ -313,6 +315,7 @@ class TransactionServiceTest {
                 isNull(), isNull(),
                 isNull(), isNull(),
                 isNull(),
+                isNull(), isNull(), isNull(),
                 any(LocalDate.class),
                 any(OffsetDateTime.class),
                 any(UUID.class),
@@ -330,6 +333,7 @@ class TransactionServiceTest {
                 isNull(), isNull(),
                 isNull(), isNull(),
                 isNull(),
+                isNull(), isNull(), isNull(),
                 any(LocalDate.class),
                 any(OffsetDateTime.class),
                 any(UUID.class),
@@ -348,4 +352,3 @@ class TransactionServiceTest {
         verifyNoInteractions(repo, categoryRepo);
     }
 }
-
