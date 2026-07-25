@@ -6,8 +6,8 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class RequestIdConfig {
-    @Bean
-    public RequestIdFilter requestIdFilter() {
-        return new RequestIdFilter();
-    }
+  @Bean
+  public RequestIdFilter requestIdFilter() {
+    return new RequestIdFilter();
+  }
 }

@@ -11,16 +11,16 @@ import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserService;
 import com.axel.pennywise.exception.ApiException;
 import com.axel.pennywise.security.CurrentUser;
+import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import jakarta.validation.Valid;
-import java.util.List;
-import java.util.UUID;
-import java.util.Map;
 
 @Slf4j
 @RestController
@@ -28,173 +28,168 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class BookController {
 
-    private final UserService userService;
-    private final BookService bookService;
-    private final TransactionRepository txRepo;
+  private final UserService userService;
+  private final BookService bookService;
+  private final TransactionRepository txRepo;
 
-    private static final String LOCAL = "local";
-    private static final String LOG_USER_RESOLVED = "User resolved: userId={}";
+  private static final String LOCAL = "local";
+  private static final String LOG_USER_RESOLVED = "User resolved: userId={}";
 
-    @GetMapping
-    public ResponseEntity<ItemsResponse<BookResponse>> list(Authentication auth) {
-        log.info("LIST books");
-        UserEntity user = userService.getOrCreate(
-                auth,
-                CurrentUser.subject().orElse(LOCAL),
-                CurrentUser.email().orElse(null)
-        );
-        log.debug(LOG_USER_RESOLVED, user.getId());
+  @GetMapping
+  public ResponseEntity<ItemsResponse<BookResponse>> list(Authentication auth) {
+    log.info("LIST books");
+    UserEntity user =
+        userService.getOrCreate(
+            auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
+    log.debug(LOG_USER_RESOLVED, user.getId());
 
-        List<BookResponse> items = bookService.list(user).stream().map(this::toResponse).toList();
-        log.info("Books listed: userId={}, count={}", user.getId(), items.size());
-        return ResponseEntity.ok(new ItemsResponse<>(items));
+    List<BookResponse> items = bookService.list(user).stream().map(this::toResponse).toList();
+    log.info("Books listed: userId={}, count={}", user.getId(), items.size());
+    return ResponseEntity.ok(new ItemsResponse<>(items));
+  }
+
+  @PostMapping
+  public ResponseEntity<BookResponse> create(
+      Authentication auth, @Valid @RequestBody BookCreateRequest req) {
+    log.info(
+        "CREATE book: name={}, currency={}, timezone={}",
+        req.name(),
+        req.currencyCode(),
+        req.timezone());
+
+    UserEntity user =
+        userService.getOrCreate(
+            auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
+    log.debug(LOG_USER_RESOLVED, user.getId());
+
+    BookEntity b =
+        bookService.create(
+            user, req.name(), req.currencyCode(), req.timezone(), req.openingBalanceMinor());
+    log.info("Book created: bookId={}, userId={}, name={}", b.getId(), user.getId(), b.getName());
+
+    return ResponseEntity.status(201).eTag(etag(b.getVersion())).body(toResponse(b));
+  }
+
+  @GetMapping("/{bookId}")
+  public ResponseEntity<BookResponse> get(Authentication auth, @PathVariable UUID bookId) {
+    log.info("GET book: bookId={}", bookId);
+
+    UserEntity user =
+        userService.getOrCreate(
+            auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
+    log.debug(LOG_USER_RESOLVED, user.getId());
+
+    BookEntity b = bookService.requireOwned(bookId, user);
+    return ResponseEntity.ok().eTag(etag(b.getVersion())).body(toResponse(b));
+  }
+
+  @PatchMapping("/{bookId}")
+  public ResponseEntity<BookResponse> patch(
+      Authentication auth,
+      @PathVariable UUID bookId,
+      @RequestHeader("If-Match") String ifMatch,
+      @Valid @RequestBody BookUpdateRequest req) {
+    log.info("PATCH book: bookId={}, ifMatch={}", bookId, ifMatch);
+
+    if (req.name() == null) {
+      throw new ApiException(
+          HttpStatus.BAD_REQUEST,
+          "VALIDATION_ERROR",
+          "PATCH request must contain at least one field");
+    }
+    if (req.name().isBlank()) {
+      throw new ApiException(
+          HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Book name cannot be blank");
     }
 
-    @PostMapping
-    public ResponseEntity<BookResponse> create(Authentication auth, @Valid @RequestBody BookCreateRequest req) {
-        log.info("CREATE book: name={}, currency={}, timezone={}", req.name(), req.currencyCode(), req.timezone());
+    UserEntity user =
+        userService.getOrCreate(
+            auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
+    log.debug(LOG_USER_RESOLVED, user.getId());
 
-        UserEntity user = userService.getOrCreate(
-                auth,
-                CurrentUser.subject().orElse(LOCAL),
-                CurrentUser.email().orElse(null)
-        );
-        log.debug(LOG_USER_RESOLVED, user.getId());
+    BookEntity b = bookService.requireOwned(bookId, user);
 
-        BookEntity b = bookService.create(user, req.name(), req.currencyCode(), req.timezone(), req.openingBalanceMinor());
-        log.info("Book created: bookId={}, userId={}, name={}", b.getId(), user.getId(), b.getName());
+    // Enforce optimistic concurrency
+    requireIfMatch(b, ifMatch);
 
-        return ResponseEntity.status(201)
-                .eTag(etag(b.getVersion()))
-                .body(toResponse(b));
+    // Apply changes (name only)
+    b = bookService.updateName(b, req.name().trim()); // persist + increment version
+
+    return ResponseEntity.ok().eTag(etag(b.getVersion())).body(toResponse(b));
+  }
+
+  @DeleteMapping("/{bookId}")
+  public ResponseEntity<Void> delete(
+      Authentication auth, @PathVariable UUID bookId, @RequestHeader("If-Match") String ifMatch) {
+    log.info("DELETE book: bookId={}, ifMatch={}", bookId, ifMatch);
+
+    UserEntity user =
+        userService.getOrCreate(
+            auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
+    log.debug(LOG_USER_RESOLVED, user.getId());
+
+    BookEntity b = bookService.requireOwned(bookId, user);
+    requireIfMatch(b, ifMatch);
+
+    if (txRepo.existsByBook_IdAndDeletedAtIsNull(bookId)) {
+      throw new ApiException(
+          HttpStatus.CONFLICT,
+          "BOOK_HAS_TRANSACTIONS",
+          "Delete all transactions before deleting this book");
     }
 
-    @GetMapping("/{bookId}")
-    public ResponseEntity<BookResponse> get(Authentication auth, @PathVariable UUID bookId) {
-        log.info("GET book: bookId={}", bookId);
+    bookService.softDelete(b);
+    return ResponseEntity.noContent().build();
+  }
 
-        UserEntity user = userService.getOrCreate(
-                auth,
-                CurrentUser.subject().orElse(LOCAL),
-                CurrentUser.email().orElse(null)
-        );
-        log.debug(LOG_USER_RESOLVED, user.getId());
+  private BookResponse toResponse(BookEntity b) {
+    return new BookResponse(
+        b.getId(),
+        b.getName(),
+        b.getCurrencyCode(),
+        b.getTimezone(),
+        b.getOpeningBalanceMinor(),
+        b.getCreatedAt(),
+        b.getUpdatedAt(),
+        b.getDeletedAt(),
+        b.getVersion() == null ? 0 : b.getVersion());
+  }
 
-        BookEntity b = bookService.requireOwned(bookId, user);
-        return ResponseEntity.ok().eTag(etag(b.getVersion())).body(toResponse(b));
+  private String etag(Long version) {
+    long v = (version == null) ? 0L : version;
+    return "\"" + v + "\"";
+  }
+
+  private long parseEtagVersion(String ifMatch) {
+    if (ifMatch == null || ifMatch.isBlank()) {
+      throw new com.axel.pennywise.exception.ApiException(
+          org.springframework.http.HttpStatus.BAD_REQUEST,
+          "MISSING_IF_MATCH",
+          "If-Match header is required");
     }
-
-    @PatchMapping("/{bookId}")
-    public ResponseEntity<BookResponse> patch(
-            Authentication auth,
-            @PathVariable UUID bookId,
-            @RequestHeader("If-Match") String ifMatch,
-            @Valid @RequestBody BookUpdateRequest req
-    ) {
-        log.info("PATCH book: bookId={}, ifMatch={}", bookId, ifMatch);
-
-        UserEntity user = userService.getOrCreate(
-                auth,
-                CurrentUser.subject().orElse(LOCAL),
-                CurrentUser.email().orElse(null)
-        );
-        log.debug(LOG_USER_RESOLVED, user.getId());
-
-        BookEntity b = bookService.requireOwned(bookId, user);
-
-        // Enforce optimistic concurrency
-        requireIfMatch(b, ifMatch);
-
-        // Apply changes (name only)
-        if (req.name() != null && !req.name().isBlank()) {
-            b = bookService.updateName(b, req.name().trim()); // persist + increment version
-        }
-
-        return ResponseEntity.ok().eTag(etag(b.getVersion())).body(toResponse(b));
+    String trimmed = ifMatch.trim();
+    if (trimmed.startsWith("\"") && trimmed.endsWith("\"") && trimmed.length() >= 2) {
+      trimmed = trimmed.substring(1, trimmed.length() - 1);
     }
-
-    @DeleteMapping("/{bookId}")
-    public ResponseEntity<Void> delete(
-            Authentication auth,
-            @PathVariable UUID bookId,
-            @RequestHeader("If-Match") String ifMatch
-    ) {
-        log.info("DELETE book: bookId={}, ifMatch={}", bookId, ifMatch);
-
-        UserEntity user = userService.getOrCreate(
-                auth,
-                CurrentUser.subject().orElse(LOCAL),
-                CurrentUser.email().orElse(null)
-        );
-        log.debug(LOG_USER_RESOLVED, user.getId());
-
-        BookEntity b = bookService.requireOwned(bookId, user);
-        requireIfMatch(b, ifMatch);
-
-        if (txRepo.existsByBook_IdAndDeletedAtIsNull(bookId)) {
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "BOOK_HAS_TRANSACTIONS",
-                    "Delete all transactions before deleting this book"
-            );
-        }
-
-        bookService.softDelete(b);
-        return ResponseEntity.noContent().build();
+    try {
+      return Long.parseLong(trimmed);
+    } catch (NumberFormatException e) {
+      throw new com.axel.pennywise.exception.ApiException(
+          org.springframework.http.HttpStatus.BAD_REQUEST,
+          "INVALID_IF_MATCH",
+          "Invalid If-Match value");
     }
+  }
 
-    private BookResponse toResponse(BookEntity b) {
-        return new BookResponse(
-                b.getId(),
-                b.getName(),
-                b.getCurrencyCode(),
-                b.getTimezone(),
-                b.getOpeningBalanceMinor(),
-                b.getCreatedAt(),
-                b.getUpdatedAt(),
-                b.getDeletedAt(),
-                b.getVersion() == null ? 0 : b.getVersion()
-        );
+  private void requireIfMatch(BookEntity b, String ifMatch) {
+    long expected = parseEtagVersion(ifMatch);
+    long actual = (b.getVersion() == null) ? 0L : b.getVersion();
+    if (expected != actual) {
+      throw new com.axel.pennywise.exception.ApiException(
+          org.springframework.http.HttpStatus.PRECONDITION_FAILED,
+          "ETAG_MISMATCH",
+          "Resource was modified. Re-fetch and retry.",
+          List.of(Map.of("expected", String.valueOf(expected), "actual", String.valueOf(actual))));
     }
-
-    private String etag(Long version) {
-        long v = (version == null) ? 0L : version;
-        return "\"" + v + "\"";
-    }
-
-    private long parseEtagVersion(String ifMatch) {
-        if (ifMatch == null || ifMatch.isBlank()) {
-            throw new com.axel.pennywise.exception.ApiException(
-                    org.springframework.http.HttpStatus.BAD_REQUEST,
-                    "MISSING_IF_MATCH",
-                    "If-Match header is required"
-            );
-        }
-        String trimmed = ifMatch.trim();
-        if (trimmed.startsWith("\"") && trimmed.endsWith("\"") && trimmed.length() >= 2) {
-            trimmed = trimmed.substring(1, trimmed.length() - 1);
-        }
-        try {
-            return Long.parseLong(trimmed);
-        } catch (NumberFormatException e) {
-            throw new com.axel.pennywise.exception.ApiException(
-                    org.springframework.http.HttpStatus.BAD_REQUEST,
-                    "INVALID_IF_MATCH",
-                    "Invalid If-Match value"
-            );
-        }
-    }
-
-    private void requireIfMatch(BookEntity b, String ifMatch) {
-        long expected = parseEtagVersion(ifMatch);
-        long actual = (b.getVersion() == null) ? 0L : b.getVersion();
-        if (expected != actual) {
-            throw new com.axel.pennywise.exception.ApiException(
-                    org.springframework.http.HttpStatus.PRECONDITION_FAILED,
-                    "ETAG_MISMATCH",
-                    "Resource was modified. Re-fetch and retry.",
-                    List.of(Map.of("expected", String.valueOf(expected), "actual", String.valueOf(actual)))
-            );
-        }
-    }
+  }
 }

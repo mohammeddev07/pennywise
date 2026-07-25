@@ -4,11 +4,10 @@ import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.common.AuditedEntity;
 import com.axel.pennywise.domain.user.UserEntity;
 import jakarta.persistence.*;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.util.UUID;
 
 @Entity
 @Table(name = "export_jobs")
@@ -17,28 +16,25 @@ import java.util.UUID;
 @NoArgsConstructor
 public class ExportJobEntity extends AuditedEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
+  private UUID id;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "book_id", nullable = false)
-    private BookEntity book;
+  @ManyToOne(optional = false, fetch = FetchType.LAZY)
+  @JoinColumn(name = "book_id", nullable = false)
+  private BookEntity book;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "requested_by_user_id", nullable = false)
-    private UserEntity requestedBy;
+  @ManyToOne(optional = false, fetch = FetchType.LAZY)
+  @JoinColumn(name = "requested_by_user_id", nullable = false)
+  private UserEntity requestedBy;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private ExportStatus status = ExportStatus.PENDING;
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  private ExportStatus status = ExportStatus.PENDING;
 
-    @Column
-    private String fileName;
+  @Column private String fileName;
 
-    @Column
-    private String storageKey;
+  @Column private String storageKey;
 
-    @Column
-    private String errorMessage;
+  @Column private String errorMessage;
 }
