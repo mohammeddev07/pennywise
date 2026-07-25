@@ -5,6 +5,25 @@ on:
     branches: ["main", "develop"]
 
 jobs:
+  build:
+    name: Gradle Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Build and Test
+        run: ./gradlew build
+
   lint:
     name: Lint Code Base
     runs-on: ubuntu-latest
@@ -27,6 +46,10 @@ jobs:
           # Validate all files only on PRs to main branch
           VALIDATE_ALL_CODEBASE: ${{ github.base_ref == 'main' }}
           LOG_LEVEL: NOTICE
+          # Use the same Google style for formatting and Checkstyle
+          JAVA_FILE_NAME: google_checks.xml
+          # Parse Flyway migrations using the PostgreSQL rules in .github/linters
+          SQLFLUFF_CONFIG_FILE: .sqlfluff
           # Disable linters not applicable to Java backend
           VALIDATE_CHECKOV: false
           VALIDATE_JSCPD: false

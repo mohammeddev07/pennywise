@@ -694,7 +694,11 @@ components:
         name: { type: string, minLength: 1, maxLength: 60 }
         isDisabled: { type: boolean }
         icon: { type: string, maxLength: 64, nullable: true }
-        color: { type: string, pattern: '^#[0-9A-Fa-f]{6}$', nullable: true }
+        color:
+          type: string
+          pattern: '^(?:\s*|#[0-9A-Fa-f]{6})$'
+          nullable: true
+          description: A blank value clears the category color.
 
     CategoryResponse:
       type: object
@@ -725,7 +729,7 @@ components:
         occurredAt:
           type: string
           format: date-time
-          description: Transaction timestamp. If provided, occurredOn is derived from it when occurredOn is absent.
+          description: Transaction timestamp. If provided without occurredOn, the book timezone is used to derive occurredOn.
         title: { type: string, maxLength: 120, nullable: true }
         categoryId: { type: string, format: uuid }
         paymentMethod: { $ref: "#/components/schemas/PaymentMethod" }

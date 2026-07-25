@@ -8,10 +8,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class Application {
 
-	public static void main(String[] args) {
-		log.info("Starting PennyWise Application");
-		SpringApplication.run(Application.class, args);
-		log.info("PennyWise Application started successfully");
-	}
-
+  public static void main(String[] args) {
+    log.info("Starting PennyWise Application");
+    SpringApplication.run(Application.class, args);
+    log.info("PennyWise Application started successfully");
+  }
 }

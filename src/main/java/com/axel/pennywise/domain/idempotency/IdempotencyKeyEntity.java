@@ -1,11 +1,10 @@
 package com.axel.pennywise.domain.idempotency;
 
 import jakarta.persistence.*;
+import java.time.OffsetDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "idempotency_keys")
@@ -14,18 +13,16 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 public class IdempotencyKeyEntity {
 
-    @EmbeddedId
-    private IdempotencyKeyId id;
+  @EmbeddedId private IdempotencyKeyId id;
 
-    @Column(nullable = false)
-    private String requestHash;
+  @Column(nullable = false)
+  private String requestHash;
 
-    @Column
-    private Integer responseCode;
+  @Column private Integer responseCode;
 
-    @Column(columnDefinition = "text")
-    private String responseBody;
+  @Column(columnDefinition = "text")
+  private String responseBody;
 
-    @Column(nullable = false, columnDefinition = "timestamptz")
-    private OffsetDateTime createdAt = OffsetDateTime.now();
+  @Column(nullable = false, columnDefinition = "timestamptz")
+  private OffsetDateTime createdAt = OffsetDateTime.now();
 }

@@ -11,13 +11,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers(disabledWithoutDocker = true)
 class ApplicationTests {
 
-	@Container
-	@ServiceConnection
-	static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
-			.withDatabaseName("pennywise_test")
-			.withUsername("postgres")
-			.withPassword("postgres");
+  @Container @ServiceConnection
+  static PostgreSQLContainer<?> postgres =
+      new PostgreSQLContainer<>("postgres:16-alpine")
+          .withDatabaseName("pennywise_test")
+          .withUsername("postgres")
+          .withPassword("postgres");
 
-	@Test
-	void contextLoads() {}
+  @Test
+  void contextLoads() {}
 }
