@@ -623,7 +623,7 @@ components:
       properties:
         email: { type: string, format: email, maxLength: 320 }
         password: { type: string, minLength: 8, maxLength: 128 }
-        defaultCurrencyCode: { type: string, pattern: '^[A-Za-z]{3}$', example: "USD" }
+        defaultCurrencyCode: { type: string, pattern: "^[A-Za-z]{3}$", example: "USD" }
 
     LoginRequest:
       type: object
@@ -686,7 +686,7 @@ components:
         type: { $ref: "#/components/schemas/CategoryType" }
         name: { type: string, minLength: 1, maxLength: 60 }
         icon: { type: string, maxLength: 64, nullable: true, example: "utensils" }
-        color: { type: string, pattern: '^#[0-9A-Fa-f]{6}$', nullable: true, example: "#EF4444" }
+        color: { type: string, pattern: "^#[0-9A-Fa-f]{6}$", nullable: true, example: "#EF4444" }
 
     CategoryUpdateRequest:
       type: object
@@ -758,7 +758,18 @@ components:
     TransactionResponse:
       type: object
       required:
-        [id, bookId, type, amountMinor, occurredOn, categoryId, category, createdAt, updatedAt, version]
+        [
+          id,
+          bookId,
+          type,
+          amountMinor,
+          occurredOn,
+          categoryId,
+          category,
+          createdAt,
+          updatedAt,
+          version
+        ]
       properties:
         id: { type: string, format: uuid }
         bookId: { type: string, format: uuid }
@@ -803,7 +814,20 @@ components:
     BudgetResponse:
       type: object
       required:
-        [id, bookId, categoryId, categoryName, month, amountMinor, spentMinor, remainingMinor, currencyCode, createdAt, updatedAt, version]
+        [
+          id,
+          bookId,
+          categoryId,
+          categoryName,
+          month,
+          amountMinor,
+          spentMinor,
+          remainingMinor,
+          currencyCode,
+          createdAt,
+          updatedAt,
+          version
+        ]
       properties:
         id: { type: string, format: uuid }
         bookId: { type: string, format: uuid }
