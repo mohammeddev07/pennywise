@@ -1,130 +1,145 @@
 package com.axel.pennywise.domain.book;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
 import com.axel.pennywise.domain.category.CategoryService;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.exception.ApiException;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import org.springframework.http.HttpStatus;
 
 @ExtendWith(MockitoExtension.class)
 class BookServiceTest {
 
-    @Mock private BookRepository repo;
-    @Mock private CategoryService categoryService;
+  @Mock private BookRepository repo;
+  @Mock private CategoryService categoryService;
 
-    @InjectMocks private BookService bookService;
+  @InjectMocks private BookService bookService;
 
-    private UserEntity user;
-    private UUID userId;
+  private UserEntity user;
+  private UUID userId;
 
-    @BeforeEach
-    void setUp() {
-        userId = UUID.fromString("11111111-1111-1111-1111-111111111111");
-        user = new UserEntity();
-        user.setId(userId);
-    }
+  @BeforeEach
+  void setUp() {
+    userId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    user = new UserEntity();
+    user.setId(userId);
+  }
 
-    @Test
-    void list_returnsBooksFromRepo() {
-        BookEntity b1 = new BookEntity();
-        b1.setId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
-        BookEntity b2 = new BookEntity();
-        b2.setId(UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
+  @Test
+  void list_returnsBooksFromRepo() {
+    BookEntity b1 = new BookEntity();
+    b1.setId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
+    BookEntity b2 = new BookEntity();
+    b2.setId(UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
 
-        when(repo.findAllByOwner_IdAndDeletedAtIsNull(userId)).thenReturn(List.of(b1, b2));
+    when(repo.findAllByOwner_IdAndDeletedAtIsNull(userId)).thenReturn(List.of(b1, b2));
 
-        List<BookEntity> result = bookService.list(user);
+    List<BookEntity> result = bookService.list(user);
 
-        assertEquals(2, result.size());
-        assertSame(b1, result.get(0));
-        assertSame(b2, result.get(1));
+    assertEquals(2, result.size());
+    assertSame(b1, result.get(0));
+    assertSame(b2, result.get(1));
 
-        verify(repo).findAllByOwner_IdAndDeletedAtIsNull(userId);
-        verifyNoMoreInteractions(repo, categoryService);
-    }
+    verify(repo).findAllByOwner_IdAndDeletedAtIsNull(userId);
+    verifyNoMoreInteractions(repo, categoryService);
+  }
 
-    @Test
-    void create_savesBookAndSeedsDefaultCategories() {
-        // repo.save returns a "saved" entity (often with an id)
-        BookEntity saved = new BookEntity();
-        saved.setId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
+  @Test
+  void create_savesBookAndSeedsDefaultCategories() {
+    // repo.save returns a "saved" entity (often with an id)
+    BookEntity saved = new BookEntity();
+    saved.setId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
 
-        when(repo.save(any(BookEntity.class))).thenReturn(saved);
+    when(repo.save(any(BookEntity.class))).thenReturn(saved);
 
-        BookEntity result = bookService.create(user, "My Book", "USD", "UTC", 5000L);
+    BookEntity result = bookService.create(user, "My Book", "USD", "UTC", 5000L);
 
-        assertSame(saved, result);
+    assertSame(saved, result);
 
-        // Verify what we saved (lightweight assertions)
-        verify(repo).save(argThat(b ->
-                b.getOwner() == user &&
-                        "My Book".equals(b.getName()) &&
-                        "USD".equals(b.getCurrencyCode()) &&
-                        "UTC".equals(b.getTimezone()) &&
-                        Long.valueOf(5000L).equals(b.getOpeningBalanceMinor())
-        ));
+    // Verify what we saved (lightweight assertions)
+    verify(repo)
+        .save(
+            argThat(
+                b ->
+                    b.getOwner() == user
+                        && "My Book".equals(b.getName())
+                        && "USD".equals(b.getCurrencyCode())
+                        && "UTC".equals(b.getTimezone())
+                        && Long.valueOf(5000L).equals(b.getOpeningBalanceMinor())));
 
-        verify(categoryService).seedDefaultCategories(saved);
-        verifyNoMoreInteractions(repo, categoryService);
-    }
+    verify(categoryService).seedDefaults(saved);
+    verifyNoMoreInteractions(repo, categoryService);
+  }
 
-    @Test
-    void updateName_setsNameAndSaves() {
-        BookEntity existing = new BookEntity();
-        existing.setId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
-        existing.setName("Old");
+  @Test
+  void create_rejectsInvalidTimezone() {
+    ApiException ex =
+        assertThrows(
+            ApiException.class,
+            () -> bookService.create(user, "My Book", "USD", "Not/A_Timezone", 5000L));
 
-        when(repo.save(existing)).thenReturn(existing);
+    assertEquals(HttpStatus.BAD_REQUEST, ex.status());
+    assertEquals("Invalid book timezone", ex.getMessage());
+    verifyNoInteractions(repo, categoryService);
+  }
 
-        BookEntity result = bookService.updateName(existing, "New Name");
+  @Test
+  void updateName_setsNameAndSaves() {
+    BookEntity existing = new BookEntity();
+    existing.setId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
+    existing.setName("Old");
 
-        assertSame(existing, result);
-        assertEquals("New Name", existing.getName());
+    when(repo.save(existing)).thenReturn(existing);
 
-        verify(repo).save(existing);
-        verifyNoMoreInteractions(repo, categoryService);
-    }
+    BookEntity result = bookService.updateName(existing, "New Name");
 
-    @Test
-    void requireOwned_returnsBookWhenFound() {
-        UUID bookId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        BookEntity found = new BookEntity();
-        found.setId(bookId);
+    assertSame(existing, result);
+    assertEquals("New Name", existing.getName());
 
-        when(repo.findByIdAndOwner_IdAndDeletedAtIsNull(bookId, userId)).thenReturn(Optional.of(found));
+    verify(repo).save(existing);
+    verifyNoMoreInteractions(repo, categoryService);
+  }
 
-        BookEntity result = bookService.requireOwned(bookId, user);
+  @Test
+  void requireOwned_returnsBookWhenFound() {
+    UUID bookId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    BookEntity found = new BookEntity();
+    found.setId(bookId);
 
-        assertSame(found, result);
+    when(repo.findByIdAndOwner_IdAndDeletedAtIsNull(bookId, userId)).thenReturn(Optional.of(found));
 
-        verify(repo).findByIdAndOwner_IdAndDeletedAtIsNull(bookId, userId);
-        verifyNoMoreInteractions(repo, categoryService);
-    }
+    BookEntity result = bookService.requireOwned(bookId, user);
 
-    @Test
-    void requireOwned_throwsApiExceptionWhenNotFound() {
-        UUID bookId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    assertSame(found, result);
 
-        when(repo.findByIdAndOwner_IdAndDeletedAtIsNull(bookId, userId)).thenReturn(Optional.empty());
+    verify(repo).findByIdAndOwner_IdAndDeletedAtIsNull(bookId, userId);
+    verifyNoMoreInteractions(repo, categoryService);
+  }
 
-        ApiException ex = assertThrows(ApiException.class, () -> bookService.requireOwned(bookId, user));
+  @Test
+  void requireOwned_throwsApiExceptionWhenNotFound() {
+    UUID bookId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
-        // Minimal assertion without depending on ApiException internals too much
-        assertEquals("Book not found", ex.getMessage());
+    when(repo.findByIdAndOwner_IdAndDeletedAtIsNull(bookId, userId)).thenReturn(Optional.empty());
 
-        verify(repo).findByIdAndOwner_IdAndDeletedAtIsNull(bookId, userId);
-        verifyNoMoreInteractions(repo, categoryService);
-    }
+    ApiException ex =
+        assertThrows(ApiException.class, () -> bookService.requireOwned(bookId, user));
+
+    // Minimal assertion without depending on ApiException internals too much
+    assertEquals("Book not found", ex.getMessage());
+
+    verify(repo).findByIdAndOwner_IdAndDeletedAtIsNull(bookId, userId);
+    verifyNoMoreInteractions(repo, categoryService);
+  }
 }

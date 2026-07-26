@@ -6,14 +6,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 class TestSecureController {
-    @GetMapping("/secure")
-    String secure() {
-        return "ok";
-    }
+  @GetMapping("/secure")
+  String secure() {
+    return "ok";
+  }
 
-    @PreAuthorize("hasAuthority('SCOPE_admin')")
-    @GetMapping("/secure/admin")
-    String admin() {
-        return "ok";
-    }
+  @PreAuthorize("hasAuthority('SCOPE_admin')")
+  @GetMapping("/secure/admin")
+  String admin() {
+    return "ok";
+  }
 }

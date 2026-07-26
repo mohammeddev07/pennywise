@@ -8,79 +8,80 @@ import com.axel.pennywise.domain.budget.BudgetRepository;
 import com.axel.pennywise.domain.transaction.TransactionRepository;
 import com.axel.pennywise.domain.transaction.TransactionType;
 import com.axel.pennywise.exception.ApiException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SummaryService {
 
-    private final TransactionRepository txRepo;
-    private final BudgetRepository budgetRepo;
+  private final TransactionRepository txRepo;
+  private final BudgetRepository budgetRepo;
 
-    @Transactional(readOnly = true)
-    public BalanceResponse balance(BookEntity book) {
-        SummaryTotalsView totals = txRepo.sumTotalsAll(book.getId());
+  @Transactional(readOnly = true)
+  public BalanceResponse balance(BookEntity book) {
+    SummaryTotalsView totals = txRepo.sumTotalsAll(book.getId());
 
-        long opening = book.getOpeningBalanceMinor();
-        long balance = opening + totals.getIncomeTotalMinor() - totals.getExpenseTotalMinor();
+    long opening = book.getOpeningBalanceMinor();
+    long balance = opening + totals.getIncomeTotalMinor() - totals.getExpenseTotalMinor();
 
-        return new BalanceResponse(book.getId(), book.getCurrencyCode(), balance);
-    }
+    return new BalanceResponse(book.getId(), book.getCurrencyCode(), balance);
+  }
 
-    @Transactional(readOnly = true)
-    public MonthlySummaryResponse monthly(BookEntity book, YearMonth ym) {
-        LocalDate start = ym.atDay(1);
-        LocalDate endExclusive = ym.plusMonths(1).atDay(1);
+  @Transactional(readOnly = true)
+  public MonthlySummaryResponse monthly(BookEntity book, YearMonth ym) {
+    LocalDate start = ym.atDay(1);
+    LocalDate endExclusive = ym.plusMonths(1).atDay(1);
 
-        // Use the month window
-        SummaryTotalsView totals = txRepo.sumTotalsRange(book.getId(), start, endExclusive);
+    // Use the month window
+    SummaryTotalsView totals = txRepo.sumTotalsRange(book.getId(), start, endExclusive);
 
+    Map<UUID, Long> budgetsByCategory =
+        budgetRepo.findAllActiveForBookAndMonth(book.getId(), start).stream()
+            .collect(
+                Collectors.toMap(b -> b.getCategory().getId(), b -> b.getAmountMinor(), Long::sum));
 
-        Map<UUID, Long> budgetsByCategory = budgetRepo.findAllActiveForBookAndMonth(book.getId(), start).stream()
-                .collect(Collectors.toMap(b -> b.getCategory().getId(), b -> b.getAmountMinor(), Long::sum));
-
-        List<CategoryBreakdownItem> byCategory = txRepo
-                .sumByCategory(book.getId(), TransactionType.EXPENSE, start, endExclusive)
-                .stream()
-                .map(ct -> new CategoryBreakdownItem(
+    List<CategoryBreakdownItem> byCategory =
+        txRepo.sumByCategory(book.getId(), TransactionType.EXPENSE, start, endExclusive).stream()
+            .map(
+                ct ->
+                    new CategoryBreakdownItem(
                         ct.categoryId(),
                         ct.categoryName(),
                         ct.type(),
                         ct.totalMinor(),
-                        budgetsByCategory.get(ct.categoryId())
-                ))
-                .toList();
+                        budgetsByCategory.get(ct.categoryId())))
+            .toList();
 
-        return new MonthlySummaryResponse(
-                book.getId(),
-                ym.toString(), // "YYYY-MM"
-                book.getCurrencyCode(),
-                totals.getIncomeTotalMinor(),
-                totals.getExpenseTotalMinor(),
-                byCategory
-        );
-    }
+    return new MonthlySummaryResponse(
+        book.getId(),
+        ym.toString(), // "YYYY-MM"
+        book.getCurrencyCode(),
+        totals.getIncomeTotalMinor(),
+        totals.getExpenseTotalMinor(),
+        byCategory);
+  }
 
-    public YearMonth parseMonthOrThrow(String month) {
-        if (month == null || month.isBlank()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "month is required (YYYY-MM)");
-        }
-        try {
-            return YearMonth.parse(month.trim());
-        } catch (Exception e) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Invalid month format. Use YYYY-MM");
-        }
+  public YearMonth parseMonthOrThrow(String month) {
+    if (month == null || month.isBlank()) {
+      throw new ApiException(
+          HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "month is required (YYYY-MM)");
     }
+    try {
+      return YearMonth.parse(month.trim());
+    } catch (Exception e) {
+      throw new ApiException(
+          HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Invalid month format. Use YYYY-MM");
+    }
+  }
 }

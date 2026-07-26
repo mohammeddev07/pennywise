@@ -25,21 +25,21 @@ import lombok.Setter;
 @NoArgsConstructor
 public class BudgetEntity extends AuditedEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
+  private UUID id;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "book_id", nullable = false)
-    private BookEntity book;
+  @ManyToOne(optional = false, fetch = FetchType.LAZY)
+  @JoinColumn(name = "book_id", nullable = false)
+  private BookEntity book;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable = false)
-    private CategoryEntity category;
+  @ManyToOne(optional = false, fetch = FetchType.LAZY)
+  @JoinColumn(name = "category_id", nullable = false)
+  private CategoryEntity category;
 
-    @Column(nullable = false)
-    private LocalDate monthStart;
+  @Column(nullable = false)
+  private LocalDate monthStart;
 
-    @Column(nullable = false)
-    private long amountMinor;
+  @Column(nullable = false)
+  private long amountMinor;
 }

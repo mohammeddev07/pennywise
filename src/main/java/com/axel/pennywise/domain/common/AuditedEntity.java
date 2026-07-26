@@ -5,38 +5,37 @@ import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Version;
+import java.time.OffsetDateTime;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.time.OffsetDateTime;
 
 @MappedSuperclass
 @Getter
 @Setter
 public abstract class AuditedEntity {
 
-    @Column(nullable = false, columnDefinition = "timestamptz")
-    private OffsetDateTime createdAt;
+  @Column(nullable = false, columnDefinition = "timestamptz")
+  private OffsetDateTime createdAt;
 
-    @Column(nullable = false, columnDefinition = "timestamptz")
-    private OffsetDateTime updatedAt;
+  @Column(nullable = false, columnDefinition = "timestamptz")
+  private OffsetDateTime updatedAt;
 
-    @Column(columnDefinition = "timestamptz")
-    private OffsetDateTime deletedAt;
+  @Column(columnDefinition = "timestamptz")
+  private OffsetDateTime deletedAt;
 
-    @Version
-    @Column(nullable = false)
-    private Long version = 0L;
+  @Version
+  @Column(nullable = false)
+  private Long version = 0L;
 
-    @PrePersist
-    void prePersist() {
-        OffsetDateTime now = OffsetDateTime.now();
-        createdAt = now;
-        updatedAt = now;
-    }
+  @PrePersist
+  void prePersist() {
+    OffsetDateTime now = OffsetDateTime.now();
+    createdAt = now;
+    updatedAt = now;
+  }
 
-    @PreUpdate
-    void preUpdate() {
-        updatedAt = OffsetDateTime.now();
-    }
+  @PreUpdate
+  void preUpdate() {
+    updatedAt = OffsetDateTime.now();
+  }
 }

@@ -6,7 +6,6 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record AuthRequest(
-        @Email @NotBlank @Size(max = 320) String email,
-        @NotBlank @Size(min = 8, max = 128) String password,
-        @Pattern(regexp = "^[A-Za-z]{3}$") String defaultCurrencyCode
-) {}
+    @Email @NotBlank @Size(max = 320) String email,
+    @NotBlank @Size(min = 8, max = 128) String password,
+    @Pattern(regexp = "^[A-Za-z]{3}$") String defaultCurrencyCode) {}
