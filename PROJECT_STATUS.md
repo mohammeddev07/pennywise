@@ -400,7 +400,6 @@ Remaining gaps before a real deployment:
    unsuitable as production log storage — not re-verified this pass, check `logback` config if log
    persistence matters.
 5. Keep all durable data in Postgres. The export feature (CSV job creation, download presigning)
-is still entirely stubbed and unimplemented; leave it disabled or implement it separately if
-exports are required. `/api/swagger-ui/**` also remains broken (see API Surface) — low priority
-unless API docs are needed by consumers.
-</content>
+   is still entirely stubbed and unimplemented; leave it disabled or implement it separately if
+   exports are required. `/api/swagger-ui/**` also remains broken (see API Surface) — low priority
+   unless API docs are needed by consumers.
