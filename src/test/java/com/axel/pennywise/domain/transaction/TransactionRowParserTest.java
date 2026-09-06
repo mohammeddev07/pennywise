@@ -6,9 +6,10 @@ import com.axel.pennywise.exception.ApiException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -17,24 +18,60 @@ import org.springframework.http.HttpStatus;
 
 class TransactionRowParserTest {
 
+  /**
+   * Reproduces a real-world Excel quirk: an accounting-style number format displays negative
+   * amounts as "(7.26)" instead of "-7.26", and a Date/Time column is stored as a numeric Excel
+   * serial, not text. The parser must read the underlying raw value, not the display text -
+   * otherwise negative amounts and formatted dates are misread.
+   */
   @Test
-  void parsesRealTemplateSampleData() throws IOException {
-    List<RawTransactionRow> rows = new ArrayList<>();
-    try (InputStream in =
-        getClass().getResourceAsStream("/TransactionsTemplate.xlsx")) {
-      assertNotNull(in, "TransactionsTemplate.xlsx must be on the test classpath");
-      TransactionRowParser.parse(in, 5000, rows::add);
-    }
-    assertFalse(rows.isEmpty());
+  void readsRawValueBypassingAccountingStyleDisplayFormat() throws IOException {
+    byte[] xlsx = accountingStyleWorkbook();
 
-    RawTransactionRow first = rows.get(0);
-    assertEquals(2, first.rowNumber());
-    assertEquals("ChatGPT", first.description());
-    assertEquals("-7.26", first.amount());
-    assertEquals("Expense", first.type());
-    assertEquals("Uncategorized", first.category());
-    assertEquals("Online", first.paymentMethod());
-    assertEquals("USD", first.currency());
+    List<RawTransactionRow> rows = new ArrayList<>();
+    TransactionRowParser.parse(new ByteArrayInputStream(xlsx), 1000, rows::add);
+
+    assertEquals(1, rows.size());
+    RawTransactionRow row = rows.get(0);
+    assertEquals("ChatGPT", row.description());
+    assertEquals("-7.26", row.amount());
+    assertEquals("Expense", row.type());
+    assertEquals("Uncategorized", row.category());
+    assertEquals("Online", row.paymentMethod());
+    assertEquals("USD", row.currency());
+  }
+
+  private static byte[] accountingStyleWorkbook() throws IOException {
+    try (XSSFWorkbook wb = new XSSFWorkbook()) {
+      Sheet sheet = wb.createSheet("Transactions");
+
+      CellStyle accountingStyle = wb.createCellStyle();
+      accountingStyle.setDataFormat(wb.createDataFormat().getFormat("#,##0.00;(#,##0.00)"));
+
+      String[] headers = {
+        "Date", "Description", "Amount", "Type", "Category", "PaymentMethod", "Currency"
+      };
+      Row header = sheet.createRow(0);
+      for (int i = 0; i < headers.length; i++) {
+        header.createCell(i).setCellValue(headers[i]);
+      }
+
+      Row data = sheet.createRow(1);
+      Cell dateCell = data.createCell(0);
+      dateCell.setCellValue(java.time.LocalDate.of(2023, 11, 20));
+      data.createCell(1).setCellValue("ChatGPT");
+      Cell amountCell = data.createCell(2);
+      amountCell.setCellValue(-7.26);
+      amountCell.setCellStyle(accountingStyle);
+      data.createCell(3).setCellValue("Expense");
+      data.createCell(4).setCellValue("Uncategorized");
+      data.createCell(5).setCellValue("Online");
+      data.createCell(6).setCellValue("USD");
+
+      ByteArrayOutputStream out = new ByteArrayOutputStream();
+      wb.write(out);
+      return out.toByteArray();
+    }
   }
 
   @Test

@@ -12,9 +12,10 @@ import com.axel.pennywise.domain.category.CategoryType;
 import com.axel.pennywise.exception.ApiException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.UUID;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -268,31 +269,90 @@ class TransactionImportServiceTest {
     assertEquals("INVALID_FILE_TYPE", ex.code());
   }
 
+  /**
+   * Reproduces a real-world Excel export: negative amounts styled as accounting format
+   * ("(12.34)" instead of "-12.34") and a free-text payment method not in the enum, mixed with
+   * one genuinely invalid ($0 amount) row that must be rejected without affecting the others.
+   */
   @Test
-  void importsRealTemplateFixtureWithoutErrors() throws IOException {
+  void importsAccountingFormattedRowsAndRejectsZeroAmountRow() throws IOException {
     when(categoryService.getOrCreateForImport(any(), any(), any()))
         .thenAnswer(
             inv ->
                 new CategoryService.CategoryLookupResult(
                     someCategory(inv.getArgument(1), inv.getArgument(2)), false));
 
-    byte[] bytes;
-    try (InputStream in = getClass().getResourceAsStream("/TransactionsTemplate.xlsx")) {
-      bytes = in.readAllBytes();
-    }
+    byte[] xlsx = accountingStyleWorkbook();
     MockMultipartFile f =
-        new MockMultipartFile("file", "TransactionsTemplate.xlsx", "application/octet-stream", bytes);
+        new MockMultipartFile("file", "transactions.xlsx", "application/octet-stream", xlsx);
 
     ImportResult result = importService.importXlsx(book, f);
 
-    // Row 941 in the fixture is a genuine $0 expense ("Muzammil Food") - correctly rejected,
-    // not a parsing bug. Every other row in this 1085-row real-world sample must import cleanly.
+    assertEquals(3, result.totalRows());
     assertEquals(1, result.failedCount(), () -> result.errors().toString());
-    assertEquals(941, result.errors().get(0).rowNumber());
+    assertEquals(4, result.errors().get(0).rowNumber());
     assertEquals("INVALID_AMOUNT", result.errors().get(0).code());
-    assertEquals(
-        result.totalRows() - result.skippedBlankCount() - result.failedCount(),
-        result.importedCount());
+    assertEquals(2, result.importedCount());
+
+    verify(txService)
+        .create(
+            eq(book), any(), eq(TransactionType.EXPENSE), eq(1234L), any(), any(), any(),
+            eq(PaymentMethod.OTHER), any(), isNull());
+    verify(txService)
+        .create(
+            eq(book), any(), eq(TransactionType.INCOME), eq(250000L), any(), any(), any(), isNull(),
+            any(), isNull());
+  }
+
+  private static byte[] accountingStyleWorkbook() throws IOException {
+    try (XSSFWorkbook wb = new XSSFWorkbook()) {
+      Sheet sheet = wb.createSheet("Transactions");
+
+      CellStyle accountingStyle = wb.createCellStyle();
+      accountingStyle.setDataFormat(wb.createDataFormat().getFormat("#,##0.00;(#,##0.00)"));
+
+      Row header = sheet.createRow(0);
+      for (int i = 0; i < COLUMNS.length; i++) {
+        header.createCell(i).setCellValue(COLUMNS[i]);
+      }
+
+      writeRow(
+          sheet, accountingStyle, 1, LocalDate.of(2026, 1, 5), "Coffee", -12.34, "Expense", "Food",
+          "Zelle");
+      writeRow(
+          sheet, accountingStyle, 2, LocalDate.of(2026, 1, 6), "Paycheck", 2500.00, "Income",
+          "Salary", null);
+      writeRow(
+          sheet, accountingStyle, 3, LocalDate.of(2026, 1, 7), "Zero", 0.00, "Expense", "Food",
+          null);
+
+      ByteArrayOutputStream out = new ByteArrayOutputStream();
+      wb.write(out);
+      return out.toByteArray();
+    }
+  }
+
+  private static void writeRow(
+      Sheet sheet,
+      CellStyle accountingStyle,
+      int rowIndex,
+      LocalDate date,
+      String description,
+      double amount,
+      String type,
+      String category,
+      String paymentMethod) {
+    Row row = sheet.createRow(rowIndex);
+    row.createCell(0).setCellValue(date);
+    row.createCell(2).setCellValue(description);
+    Cell amountCell = row.createCell(3);
+    amountCell.setCellValue(amount);
+    amountCell.setCellStyle(accountingStyle);
+    row.createCell(4).setCellValue(type);
+    row.createCell(5).setCellValue(category);
+    if (paymentMethod != null) {
+      row.createCell(6).setCellValue(paymentMethod);
+    }
   }
 
   @Test
