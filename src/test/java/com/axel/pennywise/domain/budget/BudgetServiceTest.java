@@ -70,7 +70,8 @@ class BudgetServiceTest {
     when(budgetRepo.save(any(BudgetEntity.class)))
         .thenAnswer(inv -> savedBudget(inv.getArgument(0), 0L));
     when(txRepo.sumByCategory(bookId, TransactionType.EXPENSE, start, end))
-        .thenReturn(List.of(new CategoryTotal(categoryId, "Food", CategoryType.EXPENSE, 1_200L)));
+        .thenReturn(
+            List.of(new CategoryTotal(categoryId, "Food", CategoryType.EXPENSE, 1_200L, 3L)));
 
     BudgetResponse response = service.upsert(book, categoryId, month, 5_000L, null);
 

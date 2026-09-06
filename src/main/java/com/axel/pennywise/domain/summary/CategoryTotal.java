@@ -4,8 +4,12 @@ import com.axel.pennywise.domain.category.CategoryType;
 import java.util.UUID;
 
 public record CategoryTotal(
-    UUID categoryId, String categoryName, CategoryType type, long totalMinor) {
+    UUID categoryId,
+    String categoryName,
+    CategoryType type,
+    long totalMinor,
+    long transactionCount) {
   public CategoryTotal(UUID categoryId, long totalMinor) {
-    this(categoryId, null, null, totalMinor);
+    this(categoryId, null, null, totalMinor, 0);
   }
 }

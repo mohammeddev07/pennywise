@@ -1,6 +1,7 @@
 package com.axel.pennywise.domain.transaction;
 
 import com.axel.pennywise.domain.summary.CategoryTotal;
+import com.axel.pennywise.domain.summary.DailyTotal;
 import com.axel.pennywise.domain.summary.SummaryTotalsView;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -180,7 +181,8 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
         t.category.id,
         t.category.name,
         t.category.type,
-        coalesce(sum(t.amountMinor), 0)
+        coalesce(sum(t.amountMinor), 0),
+        count(t)
       )
       from TransactionEntity t
       where t.deletedAt is null
@@ -194,6 +196,40 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
   List<CategoryTotal> sumByCategory(
       @Param("bookId") UUID bookId,
       @Param("type") TransactionType type,
+      @Param("fromDate") LocalDate fromDate,
+      @Param("toDate") LocalDate toDate);
+
+  @Query(
+      """
+      select new com.axel.pennywise.domain.summary.DailyTotal(
+        t.occurredOn,
+        coalesce(sum(case when t.type = TransactionType.INCOME then t.amountMinor else 0 end), 0),
+        coalesce(sum(case when t.type = TransactionType.EXPENSE then t.amountMinor else 0 end), 0)
+      )
+      from TransactionEntity t
+      where t.deletedAt is null
+        and t.book.id = :bookId
+        and t.occurredOn >= :fromDate
+        and t.occurredOn <  :toDate
+      group by t.occurredOn
+      order by t.occurredOn asc
+      """)
+  List<DailyTotal> sumByDay(
+      @Param("bookId") UUID bookId,
+      @Param("fromDate") LocalDate fromDate,
+      @Param("toDate") LocalDate toDate);
+
+  @Query(
+      """
+      select count(t)
+      from TransactionEntity t
+      where t.deletedAt is null
+        and t.book.id = :bookId
+        and t.occurredOn >= :fromDate
+        and t.occurredOn <  :toDate
+      """)
+  long countForRange(
+      @Param("bookId") UUID bookId,
       @Param("fromDate") LocalDate fromDate,
       @Param("toDate") LocalDate toDate);
 }

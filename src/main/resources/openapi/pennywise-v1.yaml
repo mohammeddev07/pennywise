@@ -457,6 +457,30 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/books/{bookId}/summary/range:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - name: startDate
+        in: query
+        required: true
+        schema: { type: string, format: date }
+      - name: endDate
+        in: query
+        required: true
+        schema: { type: string, format: date }
+    get:
+      tags: [Summary]
+      summary: Custom date-range summary (totals, day-by-day, category breakdown)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RangeSummaryResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/books/{bookId}/exports/csv:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -852,13 +876,14 @@ components:
 
     CategoryBreakdownItem:
       type: object
-      required: [categoryId, totalMinor]
+      required: [categoryId, totalMinor, transactionCount]
       properties:
         categoryId: { type: string, format: uuid }
         categoryName: { type: string, nullable: true }
         type: { $ref: "#/components/schemas/CategoryType" }
         totalMinor: { type: integer, format: int64 }
         budgetMinor: { type: integer, format: int64, nullable: true }
+        transactionCount: { type: integer, format: int64 }
 
     MonthlySummaryResponse:
       type: object
@@ -872,6 +897,43 @@ components:
         byCategory:
           type: array
           items: { $ref: "#/components/schemas/CategoryBreakdownItem" }
+
+    DailyBreakdownItem:
+      type: object
+      required: [date, incomeTotalMinor, expenseTotalMinor]
+      properties:
+        date: { type: string, format: date }
+        incomeTotalMinor: { type: integer, format: int64 }
+        expenseTotalMinor: { type: integer, format: int64 }
+
+    RangeSummaryResponse:
+      type: object
+      required:
+        [
+          bookId,
+          startDate,
+          endDate,
+          currencyCode,
+          incomeTotalMinor,
+          expenseTotalMinor,
+          transactionCount,
+          byCategory,
+          byDay
+        ]
+      properties:
+        bookId: { type: string, format: uuid }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        currencyCode: { type: string, example: "USD" }
+        incomeTotalMinor: { type: integer, format: int64 }
+        expenseTotalMinor: { type: integer, format: int64 }
+        transactionCount: { type: integer, format: int64 }
+        byCategory:
+          type: array
+          items: { $ref: "#/components/schemas/CategoryBreakdownItem" }
+        byDay:
+          type: array
+          items: { $ref: "#/components/schemas/DailyBreakdownItem" }
 
     ExportCreateResponse:
       type: object
