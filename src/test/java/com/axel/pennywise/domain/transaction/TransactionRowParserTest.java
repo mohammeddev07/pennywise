@@ -158,16 +158,15 @@ class TransactionRowParserTest {
         assertThrows(
             ApiException.class,
             () ->
-                TransactionRowParser.parse(
-                    new ByteArrayInputStream(notAZipAtAll), 1000, r -> {}));
+                TransactionRowParser.parse(new ByteArrayInputStream(notAZipAtAll), 1000, r -> {}));
     assertEquals(HttpStatus.BAD_REQUEST, ex.status());
     assertEquals("CORRUPT_FILE", ex.code());
   }
 
   /**
-   * A bug in the row consumer (e.g. a NullPointerException) must not be disguised as
-   * CORRUPT_FILE - the file itself is perfectly valid here. It must propagate as the real
-   * exception so GlobalExceptionHandler logs the actual cause and returns a real 500.
+   * A bug in the row consumer (e.g. a NullPointerException) must not be disguised as CORRUPT_FILE -
+   * the file itself is perfectly valid here. It must propagate as the real exception so
+   * GlobalExceptionHandler logs the actual cause and returns a real 500.
    */
   @Test
   void bugInRowConsumerPropagatesInsteadOfBeingDisguisedAsCorruptFile() {

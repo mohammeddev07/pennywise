@@ -25,8 +25,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
 /**
- * Proves the export -> import round trip: a transaction written by TransactionExportService,
- * fed back through TransactionImportService, must produce the same transaction. Exercised via
+ * Proves the export -> import round trip: a transaction written by TransactionExportService, fed
+ * back through TransactionImportService, must produce the same transaction. Exercised via
  * TransactionImportService (not raw string assertions on TransactionRowParser output) because
  * numeric cell formatting details are an implementation detail, not the actual contract.
  */

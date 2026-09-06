@@ -119,14 +119,20 @@ public class TransactionImportService {
     if (isBlank(row.type())) missing.add("Type");
     if (!missing.isEmpty()) {
       errors.add(
-          reject(row, "MISSING_REQUIRED_FIELD", "Missing required field(s): " + String.join(", ", missing)));
+          reject(
+              row,
+              "MISSING_REQUIRED_FIELD",
+              "Missing required field(s): " + String.join(", ", missing)));
       return;
     }
 
     String description = row.description().trim();
     if (description.length() > MAX_TITLE_LENGTH) {
       errors.add(
-          reject(row, "DESCRIPTION_TOO_LONG", "Description exceeds " + MAX_TITLE_LENGTH + " characters"));
+          reject(
+              row,
+              "DESCRIPTION_TOO_LONG",
+              "Description exceeds " + MAX_TITLE_LENGTH + " characters"));
       return;
     }
 
@@ -187,7 +193,10 @@ public class TransactionImportService {
             reject(
                 row,
                 "CURRENCY_MISMATCH",
-                "Currency " + currency + " does not match book currency " + book.getCurrencyCode()));
+                "Currency "
+                    + currency
+                    + " does not match book currency "
+                    + book.getCurrencyCode()));
         return;
       }
     }
@@ -209,7 +218,8 @@ public class TransactionImportService {
 
     PaymentMethod paymentMethod = parsePaymentMethod(row.paymentMethod());
 
-    long amountMinor = amount.abs().setScale(2, RoundingMode.UNNECESSARY).unscaledValue().longValueExact();
+    long amountMinor =
+        amount.abs().setScale(2, RoundingMode.UNNECESSARY).unscaledValue().longValueExact();
 
     String externalId = isBlank(row.externalId()) ? null : row.externalId().trim();
     if (externalId != null && isDuplicate(book, externalId)) {
@@ -218,7 +228,16 @@ public class TransactionImportService {
     }
 
     txService.create(
-        book, category, type, amountMinor, occurredOn, note, description, paymentMethod, occurredAt, externalId);
+        book,
+        category,
+        type,
+        amountMinor,
+        occurredOn,
+        note,
+        description,
+        paymentMethod,
+        occurredAt,
+        externalId);
     counters.imported++;
   }
 

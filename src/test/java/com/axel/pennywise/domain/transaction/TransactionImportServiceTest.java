@@ -31,8 +31,16 @@ import org.springframework.mock.web.MockMultipartFile;
 class TransactionImportServiceTest {
 
   private static final String[] COLUMNS = {
-    "Date", "Time", "Description", "Amount", "Type", "Category",
-    "PaymentMethod", "Notes", "Currency", "ExternalId"
+    "Date",
+    "Time",
+    "Description",
+    "Amount",
+    "Type",
+    "Category",
+    "PaymentMethod",
+    "Notes",
+    "Currency",
+    "ExternalId"
   };
 
   @Mock private CategoryService categoryService;
@@ -204,16 +212,21 @@ class TransactionImportServiceTest {
                 someCategory(CategoryType.EXPENSE, "Food"), false));
 
     MockMultipartFile f =
-        file(
-            new String[][] {
-              {"2026-01-05", null, "Coffee", "-12.34", "Expense", "Food", "Zelle"}
-            });
+        file(new String[][] {{"2026-01-05", null, "Coffee", "-12.34", "Expense", "Food", "Zelle"}});
 
     importService.importXlsx(book, f);
 
     verify(txService)
         .create(
-            any(), any(), any(), anyLong(), any(), any(), any(), eq(PaymentMethod.OTHER), any(),
+            any(),
+            any(),
+            any(),
+            anyLong(),
+            any(),
+            any(),
+            any(),
+            eq(PaymentMethod.OTHER),
+            any(),
             any());
   }
 
@@ -244,10 +257,7 @@ class TransactionImportServiceTest {
     MockMultipartFile f =
         file(
             new String[][] {
-              {
-                "2026-01-05", null, "Coffee", "-12.34", "Expense", "Food", null, null, null,
-                "ext-1"
-              }
+              {"2026-01-05", null, "Coffee", "-12.34", "Expense", "Food", null, null, null, "ext-1"}
             });
 
     ImportResult result = importService.importXlsx(book, f);
@@ -272,7 +282,15 @@ class TransactionImportServiceTest {
         file(
             new String[][] {
               {
-                "2026-01-05", null, "Coffee", "-12.34", "Expense", "Food", null, null, null,
+                "2026-01-05",
+                null,
+                "Coffee",
+                "-12.34",
+                "Expense",
+                "Food",
+                null,
+                null,
+                null,
                 existingId.toString()
               }
             });
@@ -298,7 +316,15 @@ class TransactionImportServiceTest {
         file(
             new String[][] {
               {
-                "2026-01-05", null, "Coffee", "-12.34", "Expense", "Food", null, null, null,
+                "2026-01-05",
+                null,
+                "Coffee",
+                "-12.34",
+                "Expense",
+                "Food",
+                null,
+                null,
+                null,
                 uuidLookingButUnknown
               }
             });
@@ -309,8 +335,16 @@ class TransactionImportServiceTest {
     assertEquals(0, result.skippedDuplicateCount());
     verify(txService)
         .create(
-            eq(book), any(), eq(TransactionType.EXPENSE), eq(1234L), any(), isNull(),
-            eq("Coffee"), isNull(), any(), eq(uuidLookingButUnknown));
+            eq(book),
+            any(),
+            eq(TransactionType.EXPENSE),
+            eq(1234L),
+            any(),
+            isNull(),
+            eq("Coffee"),
+            isNull(),
+            any(),
+            eq(uuidLookingButUnknown));
   }
 
   @Test
@@ -324,9 +358,9 @@ class TransactionImportServiceTest {
   }
 
   /**
-   * Reproduces a real-world Excel export: negative amounts styled as accounting format
-   * ("(12.34)" instead of "-12.34") and a free-text payment method not in the enum, mixed with
-   * one genuinely invalid ($0 amount) row that must be rejected without affecting the others.
+   * Reproduces a real-world Excel export: negative amounts styled as accounting format ("(12.34)"
+   * instead of "-12.34") and a free-text payment method not in the enum, mixed with one genuinely
+   * invalid ($0 amount) row that must be rejected without affecting the others.
    */
   @Test
   void importsAccountingFormattedRowsAndRejectsZeroAmountRow() throws IOException {
@@ -350,12 +384,28 @@ class TransactionImportServiceTest {
 
     verify(txService)
         .create(
-            eq(book), any(), eq(TransactionType.EXPENSE), eq(1234L), any(), any(), any(),
-            eq(PaymentMethod.OTHER), any(), isNull());
+            eq(book),
+            any(),
+            eq(TransactionType.EXPENSE),
+            eq(1234L),
+            any(),
+            any(),
+            any(),
+            eq(PaymentMethod.OTHER),
+            any(),
+            isNull());
     verify(txService)
         .create(
-            eq(book), any(), eq(TransactionType.INCOME), eq(250000L), any(), any(), any(), isNull(),
-            any(), isNull());
+            eq(book),
+            any(),
+            eq(TransactionType.INCOME),
+            eq(250000L),
+            any(),
+            any(),
+            any(),
+            isNull(),
+            any(),
+            isNull());
   }
 
   private static byte[] accountingStyleWorkbook() throws IOException {
@@ -371,13 +421,34 @@ class TransactionImportServiceTest {
       }
 
       writeRow(
-          sheet, accountingStyle, 1, LocalDate.of(2026, 1, 5), "Coffee", -12.34, "Expense", "Food",
+          sheet,
+          accountingStyle,
+          1,
+          LocalDate.of(2026, 1, 5),
+          "Coffee",
+          -12.34,
+          "Expense",
+          "Food",
           "Zelle");
       writeRow(
-          sheet, accountingStyle, 2, LocalDate.of(2026, 1, 6), "Paycheck", 2500.00, "Income",
-          "Salary", null);
+          sheet,
+          accountingStyle,
+          2,
+          LocalDate.of(2026, 1, 6),
+          "Paycheck",
+          2500.00,
+          "Income",
+          "Salary",
+          null);
       writeRow(
-          sheet, accountingStyle, 3, LocalDate.of(2026, 1, 7), "Zero", 0.00, "Expense", "Food",
+          sheet,
+          accountingStyle,
+          3,
+          LocalDate.of(2026, 1, 7),
+          "Zero",
+          0.00,
+          "Expense",
+          "Food",
           null);
 
       ByteArrayOutputStream out = new ByteArrayOutputStream();

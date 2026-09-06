@@ -19,8 +19,16 @@ import org.springframework.stereotype.Service;
 public class TransactionExportService {
 
   private static final String[] HEADERS = {
-    "Date", "Time", "Description", "Amount", "Type", "Category",
-    "PaymentMethod", "Notes", "Currency", "ExternalId"
+    "Date",
+    "Time",
+    "Description",
+    "Amount",
+    "Type",
+    "Category",
+    "PaymentMethod",
+    "Notes",
+    "Currency",
+    "ExternalId"
   };
 
   public void writeXlsx(List<TransactionEntity> transactions, OutputStream out) {
@@ -52,7 +60,11 @@ public class TransactionExportService {
   }
 
   private void writeRow(
-      Row row, TransactionEntity tx, CellStyle dateStyle, CellStyle timeStyle, CellStyle amountStyle) {
+      Row row,
+      TransactionEntity tx,
+      CellStyle dateStyle,
+      CellStyle timeStyle,
+      CellStyle amountStyle) {
     Cell dateCell = row.createCell(0);
     dateCell.setCellValue(tx.getOccurredOn());
     dateCell.setCellStyle(dateStyle);
@@ -66,8 +78,7 @@ public class TransactionExportService {
     row.createCell(2).setCellValue(tx.getTitle() == null ? "" : tx.getTitle());
 
     BigDecimal minor = BigDecimal.valueOf(tx.getAmountMinor(), 2);
-    BigDecimal signedAmount =
-        tx.getType() == TransactionType.EXPENSE ? minor.negate() : minor;
+    BigDecimal signedAmount = tx.getType() == TransactionType.EXPENSE ? minor.negate() : minor;
     Cell amountCell = row.createCell(3);
     amountCell.setCellValue(signedAmount.setScale(2, RoundingMode.UNNECESSARY).doubleValue());
     amountCell.setCellStyle(amountStyle);

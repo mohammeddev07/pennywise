@@ -187,7 +187,11 @@ class SummaryControllerTest {
 
     LocalDate start = LocalDate.of(2026, 2, 1);
     LocalDate end = LocalDate.of(2026, 1, 1);
-    doThrow(new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "startDate must be on or before endDate"))
+    doThrow(
+            new ApiException(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "startDate must be on or before endDate"))
         .when(summaryService)
         .validateRangeOrThrow(start, end);
 

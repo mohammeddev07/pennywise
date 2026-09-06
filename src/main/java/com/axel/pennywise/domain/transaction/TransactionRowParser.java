@@ -55,7 +55,8 @@ final class TransactionRowParser {
       DataFormatter rawNumberFormatter =
           new DataFormatter() {
             @Override
-            public String formatRawCellContents(double value, int formatIndex, String formatString) {
+            public String formatRawCellContents(
+                double value, int formatIndex, String formatString) {
               return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
             }
           };
@@ -72,10 +73,7 @@ final class TransactionRowParser {
       }
     } catch (ApiException e) {
       throw e;
-    } catch (IOException
-        | OpenXML4JException
-        | SAXException
-        | UnsupportedFileFormatException e) {
+    } catch (IOException | OpenXML4JException | SAXException | UnsupportedFileFormatException e) {
       // Genuinely malformed/unreadable file: bad zip, bad OOXML parts, bad sheet XML, or not an
       // Office file at all (UnsupportedFileFormatException/NotOfficeXmlFileException - POI throws
       // these unchecked, but they're still a file problem, not a bug).

@@ -46,9 +46,11 @@ public class CategoryService {
   public record CategoryLookupResult(CategoryEntity category, boolean created) {}
 
   @Transactional
-  public CategoryLookupResult getOrCreateForImport(BookEntity book, CategoryType type, String rawName) {
+  public CategoryLookupResult getOrCreateForImport(
+      BookEntity book, CategoryType type, String rawName) {
     String normalized = rawName.trim().replaceAll("\\s+", " ");
-    return repo.findByBook_IdAndTypeAndNameIgnoreCaseAndDeletedAtIsNull(book.getId(), type, normalized)
+    return repo.findByBook_IdAndTypeAndNameIgnoreCaseAndDeletedAtIsNull(
+            book.getId(), type, normalized)
         .map(existing -> new CategoryLookupResult(existing, false))
         .orElseGet(() -> new CategoryLookupResult(createForImport(book, type, normalized), true));
   }

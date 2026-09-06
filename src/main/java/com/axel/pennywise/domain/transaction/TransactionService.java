@@ -111,7 +111,8 @@ public class TransactionService {
       OffsetDateTime occurredAt,
       String externalId) {
     TransactionEntity saved =
-        create(book, category, type, amountMinor, occurredOn, note, title, paymentMethod, occurredAt);
+        create(
+            book, category, type, amountMinor, occurredOn, note, title, paymentMethod, occurredAt);
     if (externalId != null) {
       saved.setExternalId(externalId);
       saved = repo.save(saved);

@@ -304,9 +304,7 @@ public class TransactionController {
     StreamingResponseBody body = out -> exportService.writeXlsx(rows, out);
 
     return ResponseEntity.ok()
-        .header(
-            "Content-Disposition",
-            "attachment; filename=\"transactions-" + bookId + ".xlsx\"")
+        .header("Content-Disposition", "attachment; filename=\"transactions-" + bookId + ".xlsx\"")
         .contentType(
             MediaType.parseMediaType(
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
