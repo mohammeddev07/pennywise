@@ -1,11 +1,15 @@
 package com.axel.pennywise.domain.transaction;
 
 import com.axel.pennywise.exception.ApiException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import javax.xml.parsers.ParserConfigurationException;
+import org.apache.poi.UnsupportedFileFormatException;
+import org.apache.poi.openxml4j.exceptions.OpenXML4JException;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.util.XMLHelper;
@@ -17,6 +21,7 @@ import org.apache.poi.xssf.model.StylesTable;
 import org.apache.poi.xssf.usermodel.XSSFComment;
 import org.springframework.http.HttpStatus;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
 
 /**
@@ -67,12 +72,26 @@ final class TransactionRowParser {
       }
     } catch (ApiException e) {
       throw e;
-    } catch (Exception e) {
+    } catch (IOException
+        | OpenXML4JException
+        | SAXException
+        | UnsupportedFileFormatException e) {
+      // Genuinely malformed/unreadable file: bad zip, bad OOXML parts, bad sheet XML, or not an
+      // Office file at all (UnsupportedFileFormatException/NotOfficeXmlFileException - POI throws
+      // these unchecked, but they're still a file problem, not a bug).
       throw new ApiException(HttpStatus.BAD_REQUEST, "CORRUPT_FILE", "Could not read .xlsx file");
+    } catch (ParserConfigurationException e) {
+      // Environment/setup problem (XML parser could not be constructed), not caused by the
+      // uploaded file - a real internal error, not CORRUPT_FILE.
+      throw new ApiException(
+          HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Failed to initialize XML parser");
     }
+    // Anything else (e.g. a NullPointerException from a bug in the row consumer) is not a file
+    // problem - let it propagate so GlobalExceptionHandler logs the real cause and returns 500,
+    // instead of disguising a bug as CORRUPT_FILE.
   }
 
-  private static InputStream findSheet(XSSFReader reader) throws Exception {
+  private static InputStream findSheet(XSSFReader reader) throws IOException, OpenXML4JException {
     XSSFReader.SheetIterator sheets = (XSSFReader.SheetIterator) reader.getSheetsData();
     while (sheets.hasNext()) {
       InputStream next = sheets.next();

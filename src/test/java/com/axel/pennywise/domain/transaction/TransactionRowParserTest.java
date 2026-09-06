@@ -150,6 +150,43 @@ class TransactionRowParserTest {
     assertEquals("ROW_LIMIT_EXCEEDED", ex.code());
   }
 
+  @Test
+  void genuinelyCorruptFileStillProducesCorruptFileError() {
+    byte[] notAZipAtAll = "this is not an xlsx file".getBytes();
+
+    ApiException ex =
+        assertThrows(
+            ApiException.class,
+            () ->
+                TransactionRowParser.parse(
+                    new ByteArrayInputStream(notAZipAtAll), 1000, r -> {}));
+    assertEquals(HttpStatus.BAD_REQUEST, ex.status());
+    assertEquals("CORRUPT_FILE", ex.code());
+  }
+
+  /**
+   * A bug in the row consumer (e.g. a NullPointerException) must not be disguised as
+   * CORRUPT_FILE - the file itself is perfectly valid here. It must propagate as the real
+   * exception so GlobalExceptionHandler logs the actual cause and returns a real 500.
+   */
+  @Test
+  void bugInRowConsumerPropagatesInsteadOfBeingDisguisedAsCorruptFile() {
+    byte[] xlsx =
+        workbook(
+            new String[] {"Date", "Description", "Amount", "Type"},
+            new String[][] {{"2026-01-05", "Coffee", "-12.34", "Expense"}});
+
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            TransactionRowParser.parse(
+                new ByteArrayInputStream(xlsx),
+                1000,
+                r -> {
+                  throw new NullPointerException("simulated bug in row consumer");
+                }));
+  }
+
   static byte[] workbook(String[] headers, String[][] rows) {
     return workbookWithSheetName("Transactions", headers, rows);
   }
