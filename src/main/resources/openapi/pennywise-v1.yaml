@@ -14,7 +14,6 @@ tags:
   - name: Transactions
   - name: Budgets
   - name: Summary
-  - name: Export
 
 security:
   - bearerAuth: []
@@ -481,56 +480,58 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
-  /v1/books/{bookId}/exports/csv:
+  /v1/books/{bookId}/transactions/import:
     parameters:
       - $ref: "#/components/parameters/BookId"
     post:
-      tags: [Export]
-      summary: Create CSV export job (Phase 1 scaffold)
-      responses:
-        "202":
-          description: Accepted
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ExportCreateResponse" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-
-  /v1/books/{bookId}/exports/{exportId}:
-    parameters:
-      - $ref: "#/components/parameters/BookId"
-      - $ref: "#/components/parameters/ExportId"
-    get:
-      tags: [Export]
-      summary: Get export job status
+      tags: [Transactions]
+      summary: Import transactions from the standard .xlsx template (synchronous)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
       responses:
         "200":
-          description: OK
+          description: OK - per-row import report
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ExportResponse" }
+              schema: { $ref: "#/components/schemas/ImportResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "413": { description: File or row count exceeds the configured limit }
 
-  /v1/books/{bookId}/exports/{exportId}/download:
+  /v1/books/{bookId}/transactions/export:
     parameters:
       - $ref: "#/components/parameters/BookId"
-      - $ref: "#/components/parameters/ExportId"
+      - name: from
+        in: query
+        schema: { type: string, format: date }
+      - name: to
+        in: query
+        schema: { type: string, format: date }
+      - name: type
+        in: query
+        schema: { $ref: "#/components/schemas/TransactionType" }
+      - name: categoryId
+        in: query
+        schema: { type: string, format: uuid }
     get:
-      tags: [Export]
-      summary: Get download URL (Phase 1 placeholder)
+      tags: [Transactions]
+      summary: Export transactions to the standard .xlsx template (synchronous)
       responses:
         "200":
-          description: OK
+          description: OK - .xlsx file stream
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  url: { type: string, example: "https://example.com/presigned-url" }
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/Conflict" }
 
 components:
   securitySchemes:
@@ -552,11 +553,6 @@ components:
       schema: { type: string, format: uuid }
     TxId:
       name: txId
-      in: path
-      required: true
-      schema: { type: string, format: uuid }
-    ExportId:
-      name: exportId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -935,21 +931,35 @@ components:
           type: array
           items: { $ref: "#/components/schemas/DailyBreakdownItem" }
 
-    ExportCreateResponse:
+    ImportRowError:
       type: object
-      required: [exportId, status]
+      required: [rowNumber, code, message]
       properties:
-        exportId: { type: string, format: uuid }
-        status: { type: string, example: "PENDING" }
+        rowNumber: { type: integer, description: "1-indexed spreadsheet row (header = row 1)" }
+        code: { type: string, example: "AMOUNT_TYPE_MISMATCH" }
+        message: { type: string }
 
-    ExportResponse:
+    ImportResult:
       type: object
-      required: [id, bookId, status, createdAt, updatedAt]
+      required:
+        [
+          totalRows,
+          importedCount,
+          skippedBlankCount,
+          skippedDuplicateCount,
+          failedCount,
+          categoriesCreated,
+          errors
+        ]
       properties:
-        id: { type: string, format: uuid }
-        bookId: { type: string, format: uuid }
-        status: { type: string, enum: [PENDING, RUNNING, COMPLETED, FAILED] }
-        fileName: { type: string, nullable: true }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-        errorMessage: { type: string, nullable: true }
+        totalRows: { type: integer }
+        importedCount: { type: integer }
+        skippedBlankCount: { type: integer }
+        skippedDuplicateCount: { type: integer }
+        failedCount: { type: integer }
+        categoriesCreated:
+          type: array
+          items: { type: string }
+        errors:
+          type: array
+          items: { $ref: "#/components/schemas/ImportRowError" }

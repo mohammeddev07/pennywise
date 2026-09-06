@@ -51,4 +51,7 @@ public class TransactionEntity extends AuditedEntity {
   private PaymentMethod paymentMethod;
 
   @Column private String note;
+
+  @Column(name = "external_id", length = 200)
+  private String externalId;
 }

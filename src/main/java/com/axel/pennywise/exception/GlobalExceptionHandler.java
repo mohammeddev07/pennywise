@@ -21,6 +21,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @Slf4j
 @RestControllerAdvice
@@ -109,6 +110,13 @@ public class GlobalExceptionHandler {
                 "VALIDATION_ERROR",
                 "Invalid date format. Use YYYY-MM-DD",
                 List.of(Map.of("value", ex.getParsedString()))));
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  public ResponseEntity<ErrorResponse> handleUploadTooLarge(MaxUploadSizeExceededException ex) {
+    log.warn("Upload exceeds server limit: message={}", ex.getMessage());
+    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+        .body(error("FILE_TOO_LARGE", "Uploaded file exceeds the server's size limit", List.of()));
   }
 
   @ExceptionHandler(AccessDeniedException.class)

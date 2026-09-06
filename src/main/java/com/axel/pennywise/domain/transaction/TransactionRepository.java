@@ -32,6 +32,28 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
 
   boolean existsByBook_IdAndCategory_IdAndDeletedAtIsNull(UUID bookId, UUID categoryId);
 
+  boolean existsByBook_IdAndExternalIdAndDeletedAtIsNull(UUID bookId, String externalId);
+
+  @Query(
+      """
+      select t
+      from TransactionEntity t
+        join fetch t.category c
+      where t.book.id = :bookId
+        and t.deletedAt is null
+        and (:fromDate is null or t.occurredOn >= :fromDate)
+        and (:toDate   is null or t.occurredOn <= :toDate)
+        and (:type     is null or t.type = :type)
+        and (:categoryId is null or c.id = :categoryId)
+      order by t.occurredOn asc, t.createdAt asc, t.id asc
+      """)
+  List<TransactionEntity> listForExport(
+      @Param("bookId") UUID bookId,
+      @Param("fromDate") LocalDate fromDate,
+      @Param("toDate") LocalDate toDate,
+      @Param("type") TransactionType type,
+      @Param("categoryId") UUID categoryId);
+
   @Query(
       """
           select t

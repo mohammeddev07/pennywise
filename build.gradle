@@ -33,6 +33,7 @@ dependencies {
 	runtimeOnly 'org.postgresql:postgresql'
 	implementation 'org.flywaydb:flyway-core' // Flyway for DB migrations
 	runtimeOnly 'org.flywaydb:flyway-database-postgresql'
+	implementation 'org.apache.poi:poi-ooxml:5.3.0' // Excel (.xlsx) import/export
 	implementation 'org.springframework.boot:spring-boot-starter-actuator' // Observability and monitoring
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.15' // OpenAPI documentation
 	compileOnly 'org.projectlombok:lombok' // Lombok

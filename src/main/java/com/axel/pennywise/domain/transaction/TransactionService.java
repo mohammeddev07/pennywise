@@ -99,6 +99,26 @@ public class TransactionService {
     return saved;
   }
 
+  public TransactionEntity create(
+      BookEntity book,
+      CategoryEntity category,
+      TransactionType type,
+      long amountMinor,
+      LocalDate occurredOn,
+      String note,
+      String title,
+      PaymentMethod paymentMethod,
+      OffsetDateTime occurredAt,
+      String externalId) {
+    TransactionEntity saved =
+        create(book, category, type, amountMinor, occurredOn, note, title, paymentMethod, occurredAt);
+    if (externalId != null) {
+      saved.setExternalId(externalId);
+      saved = repo.save(saved);
+    }
+    return saved;
+  }
+
   /**
    * Phase 1 complete: list with filters + cursor pagination. Cursor encodes the last item’s
    * (occurredOn, createdAt, id) as base64url(JSON).
