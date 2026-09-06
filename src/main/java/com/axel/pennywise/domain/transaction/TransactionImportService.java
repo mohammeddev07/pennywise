@@ -20,7 +20,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.DateUtil;
@@ -210,8 +212,7 @@ public class TransactionImportService {
     long amountMinor = amount.abs().setScale(2, RoundingMode.UNNECESSARY).unscaledValue().longValueExact();
 
     String externalId = isBlank(row.externalId()) ? null : row.externalId().trim();
-    if (externalId != null
-        && txRepo.existsByBook_IdAndExternalIdAndDeletedAtIsNull(book.getId(), externalId)) {
+    if (externalId != null && isDuplicate(book, externalId)) {
       counters.duplicate++;
       return;
     }
@@ -223,6 +224,23 @@ public class TransactionImportService {
 
   private ImportRowError reject(RawTransactionRow row, String code, String message) {
     return new ImportRowError(row.rowNumber(), code, message);
+  }
+
+  private boolean isDuplicate(BookEntity book, String externalId) {
+    if (txRepo.existsByBook_IdAndExternalIdAndDeletedAtIsNull(book.getId(), externalId)) {
+      return true;
+    }
+    return asUuid(externalId)
+        .map(id -> txRepo.existsByBook_IdAndIdAndDeletedAtIsNull(book.getId(), id))
+        .orElse(false);
+  }
+
+  private Optional<UUID> asUuid(String value) {
+    try {
+      return Optional.of(UUID.fromString(value));
+    } catch (IllegalArgumentException e) {
+      return Optional.empty();
+    }
   }
 
   private LocalDate parseDate(String raw) {

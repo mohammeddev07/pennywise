@@ -78,6 +78,7 @@ public class TransactionExportService {
         .setCellValue(tx.getPaymentMethod() == null ? "" : tx.getPaymentMethod().name());
     row.createCell(7).setCellValue(tx.getNote() == null ? "" : tx.getNote());
     row.createCell(8).setCellValue(tx.getBook().getCurrencyCode());
-    row.createCell(9).setCellValue(tx.getExternalId() == null ? "" : tx.getExternalId());
+    row.createCell(9)
+        .setCellValue(tx.getExternalId() != null ? tx.getExternalId() : tx.getId().toString());
   }
 }

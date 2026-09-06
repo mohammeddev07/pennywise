@@ -34,6 +34,8 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
 
   boolean existsByBook_IdAndExternalIdAndDeletedAtIsNull(UUID bookId, String externalId);
 
+  boolean existsByBook_IdAndIdAndDeletedAtIsNull(UUID bookId, UUID id);
+
   @Query(
       """
       select t

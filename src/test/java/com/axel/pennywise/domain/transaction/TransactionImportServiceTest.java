@@ -260,6 +260,60 @@ class TransactionImportServiceTest {
   }
 
   @Test
+  void duplicateBySelfIdIsSkippedNotErrored() {
+    UUID existingId = UUID.randomUUID();
+    when(categoryService.getOrCreateForImport(any(), any(), any()))
+        .thenReturn(
+            new CategoryService.CategoryLookupResult(
+                someCategory(CategoryType.EXPENSE, "Food"), false));
+    when(txRepo.existsByBook_IdAndIdAndDeletedAtIsNull(book.getId(), existingId)).thenReturn(true);
+
+    MockMultipartFile f =
+        file(
+            new String[][] {
+              {
+                "2026-01-05", null, "Coffee", "-12.34", "Expense", "Food", null, null, null,
+                existingId.toString()
+              }
+            });
+
+    ImportResult result = importService.importXlsx(book, f);
+
+    assertEquals(1, result.skippedDuplicateCount());
+    assertEquals(0, result.importedCount());
+    assertEquals(0, result.failedCount());
+    verify(txService, never())
+        .create(any(), any(), any(), anyLong(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void uuidLookingExternalIdWithNoMatchImportsAsNew() {
+    when(categoryService.getOrCreateForImport(any(), any(), any()))
+        .thenReturn(
+            new CategoryService.CategoryLookupResult(
+                someCategory(CategoryType.EXPENSE, "Food"), false));
+
+    String uuidLookingButUnknown = UUID.randomUUID().toString();
+    MockMultipartFile f =
+        file(
+            new String[][] {
+              {
+                "2026-01-05", null, "Coffee", "-12.34", "Expense", "Food", null, null, null,
+                uuidLookingButUnknown
+              }
+            });
+
+    ImportResult result = importService.importXlsx(book, f);
+
+    assertEquals(1, result.importedCount());
+    assertEquals(0, result.skippedDuplicateCount());
+    verify(txService)
+        .create(
+            eq(book), any(), eq(TransactionType.EXPENSE), eq(1234L), any(), isNull(),
+            eq("Coffee"), isNull(), any(), eq(uuidLookingButUnknown));
+  }
+
+  @Test
   void rejectsNonXlsxFile() {
     MockMultipartFile f =
         new MockMultipartFile("file", "transactions.csv", "text/csv", "a,b,c".getBytes());

@@ -10,11 +10,13 @@ import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryService;
 import com.axel.pennywise.domain.category.CategoryType;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import org.apache.poi.ss.usermodel.Row;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -133,6 +135,129 @@ class TransactionExportServiceTest {
             eq("Paycheck"),
             isNull(),
             isNull(),
-            isNull());
+            eq(tx.getId().toString()));
+  }
+
+  @Test
+  void externalIdCellFallsBackToOwnIdWhenNoneStored() {
+    CategoryEntity category = new CategoryEntity();
+    category.setId(UUID.randomUUID());
+    category.setBook(book);
+    category.setType(CategoryType.EXPENSE);
+    category.setName("Food");
+
+    TransactionEntity tx = new TransactionEntity();
+    tx.setId(UUID.randomUUID());
+    tx.setBook(book);
+    tx.setCategory(category);
+    tx.setType(TransactionType.EXPENSE);
+    tx.setAmountMinor(1234L);
+    tx.setOccurredOn(LocalDate.of(2026, 1, 5));
+    tx.setTitle("Coffee");
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    exportService.writeXlsx(List.of(tx), out);
+    String externalIdCell = readExternalIdCell(out.toByteArray());
+
+    assertEquals(tx.getId().toString(), externalIdCell);
+  }
+
+  @Test
+  void externalIdCellPreservesGenuineExternalIdWhenPresent() {
+    CategoryEntity category = new CategoryEntity();
+    category.setId(UUID.randomUUID());
+    category.setBook(book);
+    category.setType(CategoryType.EXPENSE);
+    category.setName("Food");
+
+    TransactionEntity tx = new TransactionEntity();
+    tx.setId(UUID.randomUUID());
+    tx.setBook(book);
+    tx.setCategory(category);
+    tx.setType(TransactionType.EXPENSE);
+    tx.setAmountMinor(1234L);
+    tx.setOccurredOn(LocalDate.of(2026, 1, 5));
+    tx.setTitle("Coffee");
+    tx.setExternalId("bank-ext-1");
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    exportService.writeXlsx(List.of(tx), out);
+    String externalIdCell = readExternalIdCell(out.toByteArray());
+
+    assertEquals("bank-ext-1", externalIdCell);
+  }
+
+  private String readExternalIdCell(byte[] xlsx) {
+    try (var wb =
+        new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(xlsx))) {
+      Row row = wb.getSheet("Transactions").getRow(1);
+      return row.getCell(9).getStringCellValue();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Acceptance criterion for export: exporting a book's transactions and immediately reimporting
+   * that unmodified file must reproduce zero new rows, for both rows that never had a genuine
+   * ExternalId (dedupe falls back to matching the transaction's own id) and rows that were
+   * originally imported with one (dedupe matches the preserved ExternalId column, unchanged).
+   */
+  @Test
+  void reimportOfUnmodifiedExportDedupesRowWithNoGenuineExternalIdViaOwnId() {
+    CategoryEntity category = new CategoryEntity();
+    category.setId(UUID.randomUUID());
+    category.setBook(book);
+    category.setType(CategoryType.EXPENSE);
+    category.setName("Food");
+
+    TransactionEntity tx = new TransactionEntity();
+    tx.setId(UUID.randomUUID());
+    tx.setBook(book);
+    tx.setCategory(category);
+    tx.setType(TransactionType.EXPENSE);
+    tx.setAmountMinor(1234L);
+    tx.setOccurredOn(LocalDate.of(2026, 1, 5));
+    tx.setTitle("Coffee");
+
+    when(categoryService.getOrCreateForImport(book, CategoryType.EXPENSE, "Food"))
+        .thenReturn(new CategoryService.CategoryLookupResult(category, false));
+    when(txRepo.existsByBook_IdAndIdAndDeletedAtIsNull(book.getId(), tx.getId())).thenReturn(true);
+
+    ImportResult result = importService.importXlsx(book, reimport(tx));
+
+    assertEquals(1, result.skippedDuplicateCount());
+    assertEquals(0, result.importedCount());
+    verifyNoInteractions(txService);
+  }
+
+  @Test
+  void reimportOfUnmodifiedExportDedupesRowWithGenuineExternalIdViaExternalIdColumn() {
+    CategoryEntity category = new CategoryEntity();
+    category.setId(UUID.randomUUID());
+    category.setBook(book);
+    category.setType(CategoryType.EXPENSE);
+    category.setName("Food");
+
+    TransactionEntity tx = new TransactionEntity();
+    tx.setId(UUID.randomUUID());
+    tx.setBook(book);
+    tx.setCategory(category);
+    tx.setType(TransactionType.EXPENSE);
+    tx.setAmountMinor(1234L);
+    tx.setOccurredOn(LocalDate.of(2026, 1, 5));
+    tx.setTitle("Coffee");
+    tx.setExternalId("bank-ext-1");
+
+    when(categoryService.getOrCreateForImport(book, CategoryType.EXPENSE, "Food"))
+        .thenReturn(new CategoryService.CategoryLookupResult(category, false));
+    when(txRepo.existsByBook_IdAndExternalIdAndDeletedAtIsNull(book.getId(), "bank-ext-1"))
+        .thenReturn(true);
+
+    ImportResult result = importService.importXlsx(book, reimport(tx));
+
+    assertEquals(1, result.skippedDuplicateCount());
+    assertEquals(0, result.importedCount());
+    verifyNoInteractions(txService);
   }
 }
