@@ -283,7 +283,8 @@ public class TransactionController {
     UserEntity user =
         userService.getOrCreate(
             auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
-    bookService.requireOwned(bookId, user);
+    BookEntity book = bookService.requireOwned(bookId, user);
+    String currencyCode = book.getCurrencyCode();
 
     LocalDate fromDate = (from == null || from.isBlank()) ? null : LocalDate.parse(from);
     LocalDate toDate = (to == null || to.isBlank()) ? null : LocalDate.parse(to);
@@ -301,7 +302,20 @@ public class TransactionController {
     List<TransactionEntity> rows =
         txRepo.listForExport(bookId, fromDate, toDate, txType, categoryId);
 
-    StreamingResponseBody body = out -> exportService.writeXlsx(rows, out);
+    StreamingResponseBody body =
+        out -> {
+          // This callback runs after the response headers are already committed to the xlsx
+          // content type. Once that has happened, a failure can no longer be turned into a JSON
+          // ErrorResponse - Spring's converter lookup for the committed content type fails too,
+          // producing a second, worse error. So any failure here is logged and the stream simply
+          // ends instead of being rethrown.
+          try {
+            exportService.writeXlsx(rows, currencyCode, out);
+          } catch (Exception e) {
+            log.error(
+                "Export stream failed after response headers were committed: bookId={}", bookId, e);
+          }
+        };
 
     return ResponseEntity.ok()
         .header("Content-Disposition", "attachment; filename=\"transactions-" + bookId + ".xlsx\"")

@@ -16,6 +16,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,7 +54,7 @@ class TransactionExportServiceTest {
 
   private MockMultipartFile reimport(TransactionEntity tx) {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    exportService.writeXlsx(List.of(tx), out);
+    exportService.writeXlsx(List.of(tx), book.getCurrencyCode(), out);
     return new MockMultipartFile(
         "file", "export.xlsx", "application/octet-stream", out.toByteArray());
   }
@@ -156,7 +157,7 @@ class TransactionExportServiceTest {
     tx.setTitle("Coffee");
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    exportService.writeXlsx(List.of(tx), out);
+    exportService.writeXlsx(List.of(tx), book.getCurrencyCode(), out);
     String externalIdCell = readExternalIdCell(out.toByteArray());
 
     assertEquals(tx.getId().toString(), externalIdCell);
@@ -181,10 +182,52 @@ class TransactionExportServiceTest {
     tx.setExternalId("bank-ext-1");
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    exportService.writeXlsx(List.of(tx), out);
+    exportService.writeXlsx(List.of(tx), book.getCurrencyCode(), out);
     String externalIdCell = readExternalIdCell(out.toByteArray());
 
     assertEquals("bank-ext-1", externalIdCell);
+  }
+
+  /**
+   * writeXlsx must never call tx.getBook() - it runs inside the StreamingResponseBody callback,
+   * after the request's Hibernate session has closed, so any lazy access throws
+   * LazyInitializationException in production (see TransactionExportIntegrationTest for the
+   * real-session reproduction). tx.setBook(null) here is a cheap proxy for "the book association is
+   * unusable" that doesn't require a Hibernate session at all: if writeRow ever reads tx.getBook()
+   * again, this throws NullPointerException instead of silently passing.
+   */
+  @Test
+  void writeXlsxNeverTouchesTheBookAssociation() {
+    CategoryEntity category = new CategoryEntity();
+    category.setId(UUID.randomUUID());
+    category.setBook(book);
+    category.setType(CategoryType.EXPENSE);
+    category.setName("Food");
+
+    TransactionEntity tx = new TransactionEntity();
+    tx.setId(UUID.randomUUID());
+    tx.setBook(null);
+    tx.setCategory(category);
+    tx.setType(TransactionType.EXPENSE);
+    tx.setAmountMinor(1234L);
+    tx.setOccurredOn(LocalDate.of(2026, 1, 5));
+    tx.setTitle("Coffee");
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    assertDoesNotThrow(() -> exportService.writeXlsx(List.of(tx), "USD", out));
+
+    Cell currencyCell = readCell(out.toByteArray(), 8);
+    assertEquals("USD", currencyCell.getStringCellValue());
+  }
+
+  private Cell readCell(byte[] xlsx, int columnIndex) {
+    try (var wb =
+        new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(xlsx))) {
+      Row row = wb.getSheet("Transactions").getRow(1);
+      return row.getCell(columnIndex);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   private String readExternalIdCell(byte[] xlsx) {

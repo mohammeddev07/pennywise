@@ -31,7 +31,14 @@ public class TransactionExportService {
     "ExternalId"
   };
 
-  public void writeXlsx(List<TransactionEntity> transactions, OutputStream out) {
+  /**
+   * @param currencyCode the book's currency, resolved by the caller before streaming starts. Must
+   *     not be read off {@code tx.getBook()} here - this runs inside the StreamingResponseBody
+   *     callback, after the controller method has returned and the request's Hibernate session has
+   *     closed, so any lazy association access throws LazyInitializationException.
+   */
+  public void writeXlsx(
+      List<TransactionEntity> transactions, String currencyCode, OutputStream out) {
     try (SXSSFWorkbook workbook = new SXSSFWorkbook(100)) {
       Sheet sheet = workbook.createSheet("Transactions");
 
@@ -49,7 +56,7 @@ public class TransactionExportService {
 
       int rowNum = 1;
       for (TransactionEntity tx : transactions) {
-        writeRow(sheet.createRow(rowNum++), tx, dateStyle, timeStyle, amountStyle);
+        writeRow(sheet.createRow(rowNum++), tx, currencyCode, dateStyle, timeStyle, amountStyle);
       }
 
       workbook.write(out);
@@ -62,6 +69,7 @@ public class TransactionExportService {
   private void writeRow(
       Row row,
       TransactionEntity tx,
+      String currencyCode,
       CellStyle dateStyle,
       CellStyle timeStyle,
       CellStyle amountStyle) {
@@ -88,7 +96,7 @@ public class TransactionExportService {
     row.createCell(6)
         .setCellValue(tx.getPaymentMethod() == null ? "" : tx.getPaymentMethod().name());
     row.createCell(7).setCellValue(tx.getNote() == null ? "" : tx.getNote());
-    row.createCell(8).setCellValue(tx.getBook().getCurrencyCode());
+    row.createCell(8).setCellValue(currencyCode);
     row.createCell(9)
         .setCellValue(tx.getExternalId() != null ? tx.getExternalId() : tx.getId().toString());
   }
