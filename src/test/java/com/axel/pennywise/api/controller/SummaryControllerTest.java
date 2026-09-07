@@ -14,6 +14,7 @@ import com.axel.pennywise.domain.user.UserService;
 import com.axel.pennywise.exception.ApiException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.YearMonth;
 import java.util.List;
@@ -143,6 +144,67 @@ class SummaryControllerTest {
         .andExpect(status().isBadRequest());
 
     verifyNoInteractions(userService, bookService, summaryService);
+  }
+
+  @Test
+  void testGetRangeSummary() throws Exception {
+    when(userService.getOrCreate(any(), any(), any())).thenReturn(testUser);
+    when(bookService.requireOwned(bookId, testUser)).thenReturn(testBook);
+
+    LocalDate start = LocalDate.of(2026, 1, 5);
+    LocalDate end = LocalDate.of(2026, 1, 8);
+    when(summaryService.range(testBook, start, end)).thenReturn(null);
+
+    mockMvc
+        .perform(
+            get("/v1/books/{bookId}/summary/range", bookId)
+                .with(auth())
+                .param("startDate", "2026-01-05")
+                .param("endDate", "2026-01-08"))
+        .andExpect(status().isOk());
+
+    verify(userService).getOrCreate(any(), any(), any());
+    verify(bookService).requireOwned(bookId, testUser);
+    verify(summaryService).validateRangeOrThrow(start, end);
+    verify(summaryService).range(testBook, start, end);
+    verifyNoMoreInteractions(userService, bookService, summaryService);
+  }
+
+  @Test
+  void testGetRangeSummaryMissingParams() throws Exception {
+    // Missing required @RequestParam => Spring returns 400 before controller runs.
+    mockMvc
+        .perform(get("/v1/books/{bookId}/summary/range", bookId).with(auth()))
+        .andExpect(status().isBadRequest());
+
+    verifyNoInteractions(userService, bookService, summaryService);
+  }
+
+  @Test
+  void testGetRangeSummaryInvalidRangeRejected() throws Exception {
+    when(userService.getOrCreate(any(), any(), any())).thenReturn(testUser);
+    when(bookService.requireOwned(bookId, testUser)).thenReturn(testBook);
+
+    LocalDate start = LocalDate.of(2026, 2, 1);
+    LocalDate end = LocalDate.of(2026, 1, 1);
+    doThrow(
+            new ApiException(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "startDate must be on or before endDate"))
+        .when(summaryService)
+        .validateRangeOrThrow(start, end);
+
+    mockMvc
+        .perform(
+            get("/v1/books/{bookId}/summary/range", bookId)
+                .with(auth())
+                .param("startDate", "2026-02-01")
+                .param("endDate", "2026-01-01"))
+        .andExpect(status().isBadRequest());
+
+    verify(summaryService).validateRangeOrThrow(start, end);
+    verify(summaryService, never()).range(any(), any(), any());
   }
 
   @RestControllerAdvice

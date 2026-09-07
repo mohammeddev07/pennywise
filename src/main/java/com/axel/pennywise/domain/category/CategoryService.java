@@ -43,6 +43,34 @@ public class CategoryService {
         "Default categories seeded for book: bookId={}, count={}", book.getId(), entities.size());
   }
 
+  public record CategoryLookupResult(CategoryEntity category, boolean created) {}
+
+  @Transactional
+  public CategoryLookupResult getOrCreateForImport(
+      BookEntity book, CategoryType type, String rawName) {
+    String normalized = rawName.trim().replaceAll("\\s+", " ");
+    return repo.findByBook_IdAndTypeAndNameIgnoreCaseAndDeletedAtIsNull(
+            book.getId(), type, normalized)
+        .map(existing -> new CategoryLookupResult(existing, false))
+        .orElseGet(() -> new CategoryLookupResult(createForImport(book, type, normalized), true));
+  }
+
+  private CategoryEntity createForImport(BookEntity book, CategoryType type, String name) {
+    CategoryEntity c = new CategoryEntity();
+    c.setBook(book);
+    c.setType(type);
+    c.setName(name);
+    c.setDisabled(false);
+    CategoryEntity saved = repo.save(c);
+    log.info(
+        "Category auto-created during import: categoryId={}, bookId={}, type={}, name={}",
+        saved.getId(),
+        book.getId(),
+        type,
+        name);
+    return saved;
+  }
+
   private CategoryEntity createDefault(BookEntity book, String[] seed) {
     CategoryType type = CategoryType.valueOf(seed[0]);
     log.debug(

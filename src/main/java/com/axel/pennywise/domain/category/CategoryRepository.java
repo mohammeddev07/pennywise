@@ -13,5 +13,8 @@ public interface CategoryRepository extends JpaRepository<CategoryEntity, UUID> 
   boolean existsByBook_IdAndTypeAndNameIgnoreCaseAndDeletedAtIsNull(
       UUID bookId, CategoryType type, String name);
 
+  Optional<CategoryEntity> findByBook_IdAndTypeAndNameIgnoreCaseAndDeletedAtIsNull(
+      UUID bookId, CategoryType type, String name);
+
   boolean existsByBook_Id(UUID bookId);
 }

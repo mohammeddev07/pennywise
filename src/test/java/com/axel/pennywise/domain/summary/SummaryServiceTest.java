@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import com.axel.pennywise.api.dto.summary.BalanceResponse;
 import com.axel.pennywise.api.dto.summary.MonthlySummaryResponse;
+import com.axel.pennywise.api.dto.summary.RangeSummaryResponse;
 import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.budget.BudgetRepository;
 import com.axel.pennywise.domain.transaction.TransactionRepository;
@@ -100,6 +101,90 @@ class SummaryServiceTest {
     verify(budgetRepo).findAllActiveForBookAndMonth(bookId, start);
     verify(txRepo).sumByCategory(bookId, TransactionType.EXPENSE, start, endExclusive);
     verifyNoMoreInteractions(txRepo, budgetRepo);
+  }
+
+  @Test
+  void range_computesTotalsCountAndZeroFillsMissingDays() {
+    LocalDate start = LocalDate.of(2026, 1, 5);
+    LocalDate end = LocalDate.of(2026, 1, 8);
+    LocalDate endExclusive = LocalDate.of(2026, 1, 9);
+
+    SummaryTotalsView totals = mock(SummaryTotalsView.class);
+    when(totals.getIncomeTotalMinor()).thenReturn(5_000L);
+    when(totals.getExpenseTotalMinor()).thenReturn(3_000L);
+    when(txRepo.sumTotals(bookId, start, endExclusive)).thenReturn(totals);
+    when(txRepo.countForRange(bookId, start, endExclusive)).thenReturn(4L);
+
+    UUID foodId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    CategoryTotal food = mock(CategoryTotal.class);
+    when(food.categoryId()).thenReturn(foodId);
+    when(food.categoryName()).thenReturn("Food");
+    when(food.type()).thenReturn(com.axel.pennywise.domain.category.CategoryType.EXPENSE);
+    when(food.totalMinor()).thenReturn(3_000L);
+    when(food.transactionCount()).thenReturn(2L);
+
+    when(txRepo.sumByCategory(bookId, TransactionType.EXPENSE, start, endExclusive))
+        .thenReturn(List.of(food));
+    when(txRepo.sumByCategory(bookId, TransactionType.INCOME, start, endExclusive))
+        .thenReturn(List.of());
+
+    // Only day 5 and day 8 have transactions - days 6 and 7 must be zero-filled, not skipped.
+    when(txRepo.sumByDay(bookId, start, endExclusive))
+        .thenReturn(
+            List.of(
+                new DailyTotal(LocalDate.of(2026, 1, 5), 0L, 1_500L),
+                new DailyTotal(LocalDate.of(2026, 1, 8), 5_000L, 1_500L)));
+
+    RangeSummaryResponse resp = summaryService.range(book, start, end);
+
+    assertEquals(bookId, resp.bookId());
+    assertEquals(start, resp.startDate());
+    assertEquals(end, resp.endDate());
+    assertEquals("USD", resp.currencyCode());
+    assertEquals(5_000L, resp.incomeTotalMinor());
+    assertEquals(3_000L, resp.expenseTotalMinor());
+    assertEquals(4L, resp.transactionCount());
+    assertEquals(1, resp.byCategory().size());
+    assertEquals("Food", resp.byCategory().get(0).categoryName());
+    assertEquals(2L, resp.byCategory().get(0).transactionCount());
+    assertNull(resp.byCategory().get(0).budgetMinor());
+
+    assertEquals(4, resp.byDay().size());
+    assertEquals(LocalDate.of(2026, 1, 5), resp.byDay().get(0).date());
+    assertEquals(1_500L, resp.byDay().get(0).expenseTotalMinor());
+    assertEquals(LocalDate.of(2026, 1, 6), resp.byDay().get(1).date());
+    assertEquals(0L, resp.byDay().get(1).incomeTotalMinor());
+    assertEquals(0L, resp.byDay().get(1).expenseTotalMinor());
+    assertEquals(LocalDate.of(2026, 1, 7), resp.byDay().get(2).date());
+    assertEquals(LocalDate.of(2026, 1, 8), resp.byDay().get(3).date());
+    assertEquals(5_000L, resp.byDay().get(3).incomeTotalMinor());
+  }
+
+  @Test
+  void validateRangeOrThrow_throwsWhenStartAfterEnd() {
+    ApiException ex =
+        assertThrows(
+            ApiException.class,
+            () ->
+                summaryService.validateRangeOrThrow(
+                    LocalDate.of(2026, 2, 1), LocalDate.of(2026, 1, 1)));
+    assertEquals("startDate must be on or before endDate", ex.getMessage());
+  }
+
+  @Test
+  void validateRangeOrThrow_throwsWhenRangeExceedsFiveYears() {
+    LocalDate start = LocalDate.of(2020, 1, 1);
+    LocalDate end = LocalDate.of(2025, 1, 2); // one day past the 5-year cap
+    ApiException ex =
+        assertThrows(ApiException.class, () -> summaryService.validateRangeOrThrow(start, end));
+    assertEquals("Range cannot exceed 5 years", ex.getMessage());
+  }
+
+  @Test
+  void validateRangeOrThrow_allowsExactlyFiveYears() {
+    LocalDate start = LocalDate.of(2020, 1, 1);
+    LocalDate end = LocalDate.of(2025, 1, 1);
+    assertDoesNotThrow(() -> summaryService.validateRangeOrThrow(start, end));
   }
 
   @Test

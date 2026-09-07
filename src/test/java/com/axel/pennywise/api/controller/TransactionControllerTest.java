@@ -59,6 +59,8 @@ class TransactionControllerTest {
   @Mock private TransactionRepository transactionRepository;
   @Mock private TransactionService transactionService;
   @Mock private IdempotencyService idempotencyService;
+  @Mock private com.axel.pennywise.domain.transaction.TransactionImportService importService;
+  @Mock private com.axel.pennywise.domain.transaction.TransactionExportService exportService;
 
   private ObjectMapper objectMapper;
 
@@ -82,7 +84,9 @@ class TransactionControllerTest {
             transactionRepository,
             transactionService,
             idempotencyService,
-            objectMapper);
+            objectMapper,
+            importService,
+            exportService);
 
     mockMvc =
         MockMvcBuilders.standaloneSetup(controller)

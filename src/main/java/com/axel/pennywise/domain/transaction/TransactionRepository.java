@@ -1,6 +1,7 @@
 package com.axel.pennywise.domain.transaction;
 
 import com.axel.pennywise.domain.summary.CategoryTotal;
+import com.axel.pennywise.domain.summary.DailyTotal;
 import com.axel.pennywise.domain.summary.SummaryTotalsView;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -30,6 +31,30 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
   boolean existsByBook_IdAndDeletedAtIsNull(UUID bookId);
 
   boolean existsByBook_IdAndCategory_IdAndDeletedAtIsNull(UUID bookId, UUID categoryId);
+
+  boolean existsByBook_IdAndExternalIdAndDeletedAtIsNull(UUID bookId, String externalId);
+
+  boolean existsByBook_IdAndIdAndDeletedAtIsNull(UUID bookId, UUID id);
+
+  @Query(
+      """
+      select t
+      from TransactionEntity t
+        join fetch t.category c
+      where t.book.id = :bookId
+        and t.deletedAt is null
+        and (:fromDate is null or t.occurredOn >= :fromDate)
+        and (:toDate   is null or t.occurredOn <= :toDate)
+        and (:type     is null or t.type = :type)
+        and (:categoryId is null or c.id = :categoryId)
+      order by t.occurredOn asc, t.createdAt asc, t.id asc
+      """)
+  List<TransactionEntity> listForExport(
+      @Param("bookId") UUID bookId,
+      @Param("fromDate") LocalDate fromDate,
+      @Param("toDate") LocalDate toDate,
+      @Param("type") TransactionType type,
+      @Param("categoryId") UUID categoryId);
 
   @Query(
       """
@@ -180,7 +205,8 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
         t.category.id,
         t.category.name,
         t.category.type,
-        coalesce(sum(t.amountMinor), 0)
+        coalesce(sum(t.amountMinor), 0),
+        count(t)
       )
       from TransactionEntity t
       where t.deletedAt is null
@@ -194,6 +220,40 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
   List<CategoryTotal> sumByCategory(
       @Param("bookId") UUID bookId,
       @Param("type") TransactionType type,
+      @Param("fromDate") LocalDate fromDate,
+      @Param("toDate") LocalDate toDate);
+
+  @Query(
+      """
+      select new com.axel.pennywise.domain.summary.DailyTotal(
+        t.occurredOn,
+        coalesce(sum(case when t.type = TransactionType.INCOME then t.amountMinor else 0 end), 0),
+        coalesce(sum(case when t.type = TransactionType.EXPENSE then t.amountMinor else 0 end), 0)
+      )
+      from TransactionEntity t
+      where t.deletedAt is null
+        and t.book.id = :bookId
+        and t.occurredOn >= :fromDate
+        and t.occurredOn <  :toDate
+      group by t.occurredOn
+      order by t.occurredOn asc
+      """)
+  List<DailyTotal> sumByDay(
+      @Param("bookId") UUID bookId,
+      @Param("fromDate") LocalDate fromDate,
+      @Param("toDate") LocalDate toDate);
+
+  @Query(
+      """
+      select count(t)
+      from TransactionEntity t
+      where t.deletedAt is null
+        and t.book.id = :bookId
+        and t.occurredOn >= :fromDate
+        and t.occurredOn <  :toDate
+      """)
+  long countForRange(
+      @Param("bookId") UUID bookId,
       @Param("fromDate") LocalDate fromDate,
       @Param("toDate") LocalDate toDate);
 }

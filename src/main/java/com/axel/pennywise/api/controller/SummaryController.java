@@ -2,12 +2,14 @@ package com.axel.pennywise.api.controller;
 
 import com.axel.pennywise.api.dto.summary.BalanceResponse;
 import com.axel.pennywise.api.dto.summary.MonthlySummaryResponse;
+import com.axel.pennywise.api.dto.summary.RangeSummaryResponse;
 import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.book.BookService;
 import com.axel.pennywise.domain.summary.SummaryService;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserService;
 import com.axel.pennywise.security.CurrentUser;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -77,6 +79,40 @@ public class SummaryController {
       return ResponseEntity.ok(response);
     } catch (Exception e) {
       log.error("Error retrieving monthly summary: bookId={}, month={}", bookId, month, e);
+      throw e;
+    }
+  }
+
+  @GetMapping("/summary/range")
+  public ResponseEntity<RangeSummaryResponse> range(
+      Authentication auth,
+      @PathVariable UUID bookId,
+      @RequestParam String startDate,
+      @RequestParam String endDate) {
+    log.info("GET range summary: bookId={}, startDate={}, endDate={}", bookId, startDate, endDate);
+    try {
+      UserEntity user =
+          userService.getOrCreate(
+              auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
+      log.debug(LOG_USER_RESOLVED, user.getId());
+
+      BookEntity book = bookService.requireOwned(bookId, user);
+      log.debug(LOG_BOOKS_RESOLVED, book.getId(), book.getCurrencyCode());
+
+      LocalDate start = LocalDate.parse(startDate.trim());
+      LocalDate end = LocalDate.parse(endDate.trim());
+      summaryService.validateRangeOrThrow(start, end);
+
+      RangeSummaryResponse response = summaryService.range(book, start, end);
+
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      log.error(
+          "Error retrieving range summary: bookId={}, startDate={}, endDate={}",
+          bookId,
+          startDate,
+          endDate,
+          e);
       throw e;
     }
   }

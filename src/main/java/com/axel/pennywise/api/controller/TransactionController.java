@@ -8,6 +8,8 @@ import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryRepository;
 import com.axel.pennywise.domain.idempotency.IdempotencyService;
 import com.axel.pennywise.domain.transaction.TransactionEntity;
+import com.axel.pennywise.domain.transaction.TransactionExportService;
+import com.axel.pennywise.domain.transaction.TransactionImportService;
 import com.axel.pennywise.domain.transaction.TransactionRepository;
 import com.axel.pennywise.domain.transaction.TransactionService;
 import com.axel.pennywise.domain.transaction.TransactionType;
@@ -24,9 +26,12 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @Slf4j
 @RestController
@@ -41,6 +46,8 @@ public class TransactionController {
   private final TransactionService txService;
   private final IdempotencyService idem;
   private final ObjectMapper objectMapper;
+  private final TransactionImportService importService;
+  private final TransactionExportService exportService;
 
   private static final String LOCAL = "local";
   private static final String NOT_FOUND = "NOT_FOUND";
@@ -230,6 +237,92 @@ public class TransactionController {
     return ResponseEntity.ok()
         .eTag(etag(initializedTx.getVersion()))
         .body(toResponse(initializedTx));
+  }
+
+  @PostMapping("/import")
+  public ResponseEntity<ImportResult> importTransactions(
+      Authentication auth, @PathVariable UUID bookId, @RequestParam("file") MultipartFile file) {
+    log.info(
+        "IMPORT transactions: bookId={}, fileName={}, size={}",
+        bookId,
+        file.getOriginalFilename(),
+        file.getSize());
+
+    UserEntity user =
+        userService.getOrCreate(
+            auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
+    BookEntity book = bookService.requireOwned(bookId, user);
+
+    ImportResult result = importService.importXlsx(book, file);
+    log.info(
+        "Import complete: bookId={}, total={}, imported={}, failed={}",
+        bookId,
+        result.totalRows(),
+        result.importedCount(),
+        result.failedCount());
+
+    return ResponseEntity.ok(result);
+  }
+
+  @GetMapping("/export")
+  public ResponseEntity<StreamingResponseBody> export(
+      Authentication auth,
+      @PathVariable UUID bookId,
+      @RequestParam(required = false) String from,
+      @RequestParam(required = false) String to,
+      @RequestParam(required = false) String type,
+      @RequestParam(required = false) UUID categoryId) {
+    log.info(
+        "EXPORT transactions: bookId={}, from={}, to={}, type={}, categoryId={}",
+        bookId,
+        from,
+        to,
+        type,
+        categoryId);
+
+    UserEntity user =
+        userService.getOrCreate(
+            auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
+    BookEntity book = bookService.requireOwned(bookId, user);
+    String currencyCode = book.getCurrencyCode();
+
+    LocalDate fromDate = (from == null || from.isBlank()) ? null : LocalDate.parse(from);
+    LocalDate toDate = (to == null || to.isBlank()) ? null : LocalDate.parse(to);
+
+    TransactionType txType = null;
+    if (type != null && !type.isBlank()) {
+      try {
+        txType = TransactionType.valueOf(type.trim().toUpperCase());
+      } catch (IllegalArgumentException e) {
+        throw new ApiException(
+            HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Invalid transaction type");
+      }
+    }
+
+    List<TransactionEntity> rows =
+        txRepo.listForExport(bookId, fromDate, toDate, txType, categoryId);
+
+    StreamingResponseBody body =
+        out -> {
+          // This callback runs after the response headers are already committed to the xlsx
+          // content type. Once that has happened, a failure can no longer be turned into a JSON
+          // ErrorResponse - Spring's converter lookup for the committed content type fails too,
+          // producing a second, worse error. So any failure here is logged and the stream simply
+          // ends instead of being rethrown.
+          try {
+            exportService.writeXlsx(rows, currencyCode, out);
+          } catch (Exception e) {
+            log.error(
+                "Export stream failed after response headers were committed: bookId={}", bookId, e);
+          }
+        };
+
+    return ResponseEntity.ok()
+        .header("Content-Disposition", "attachment; filename=\"transactions-" + bookId + ".xlsx\"")
+        .contentType(
+            MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(body);
   }
 
   @DeleteMapping("/{txId}")
