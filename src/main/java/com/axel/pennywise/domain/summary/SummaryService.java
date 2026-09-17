@@ -5,6 +5,7 @@ import com.axel.pennywise.api.dto.summary.CategoryBreakdownItem;
 import com.axel.pennywise.api.dto.summary.DailyBreakdownItem;
 import com.axel.pennywise.api.dto.summary.MonthlySummaryResponse;
 import com.axel.pennywise.api.dto.summary.RangeSummaryResponse;
+import com.axel.pennywise.config.CacheConfig;
 import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.budget.BudgetRepository;
 import com.axel.pennywise.domain.transaction.TransactionRepository;
@@ -19,6 +20,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,7 @@ public class SummaryService {
   private final TransactionRepository txRepo;
   private final BudgetRepository budgetRepo;
 
+  @Cacheable(cacheNames = CacheConfig.BOOK_BALANCE, key = "#book.id.toString()")
   @Transactional(readOnly = true)
   public BalanceResponse balance(BookEntity book) {
     SummaryTotalsView totals = txRepo.sumTotalsAll(book.getId());
@@ -41,6 +44,9 @@ public class SummaryService {
     return new BalanceResponse(book.getId(), book.getCurrencyCode(), balance);
   }
 
+  @Cacheable(
+      cacheNames = CacheConfig.MONTHLY_SUMMARY,
+      key = "#book.id.toString() + ':' + #ym.toString()")
   @Transactional(readOnly = true)
   public MonthlySummaryResponse monthly(BookEntity book, YearMonth ym) {
     LocalDate start = ym.atDay(1);

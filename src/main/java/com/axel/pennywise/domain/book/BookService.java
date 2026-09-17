@@ -1,6 +1,8 @@
 package com.axel.pennywise.domain.book;
 
+import com.axel.pennywise.config.CacheConfig;
 import com.axel.pennywise.domain.category.CategoryService;
+import com.axel.pennywise.domain.summary.CacheEvictionService;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.exception.ApiException;
 import java.time.DateTimeException;
@@ -11,6 +13,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookService {
   private final BookRepository repo;
   private final CategoryService categoryService;
+  private final CacheEvictionService cacheEvictionService;
 
+  @Cacheable(cacheNames = CacheConfig.BOOKS, key = "#user.id.toString()")
   public List<BookEntity> list(UserEntity user) {
     log.debug("Listing books for user: userId={}", user.getId());
     List<BookEntity> books = repo.findAllByOwner_IdAndDeletedAtIsNull(user.getId());
@@ -58,6 +63,7 @@ public class BookService {
     categoryService.seedDefaults(saved);
     log.debug("Default categories seeded: bookId={}", saved.getId());
 
+    cacheEvictionService.evictBooks(user.getId());
     return saved;
   }
 
@@ -72,7 +78,9 @@ public class BookService {
   @Transactional
   public BookEntity updateName(BookEntity book, String newName) {
     book.setName(newName);
-    return repo.save(book);
+    BookEntity saved = repo.save(book);
+    cacheEvictionService.evictBooks(saved.getOwner().getId());
+    return saved;
   }
 
   @Transactional
@@ -81,6 +89,7 @@ public class BookService {
       book.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
     }
     repo.save(book);
+    cacheEvictionService.evictBooks(book.getOwner().getId());
   }
 
   public BookEntity requireOwned(UUID bookId, UserEntity user) {

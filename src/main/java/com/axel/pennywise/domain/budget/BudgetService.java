@@ -1,10 +1,12 @@
 package com.axel.pennywise.domain.budget;
 
 import com.axel.pennywise.api.dto.budget.BudgetResponse;
+import com.axel.pennywise.config.CacheConfig;
 import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryRepository;
 import com.axel.pennywise.domain.category.CategoryType;
+import com.axel.pennywise.domain.summary.CacheEvictionService;
 import com.axel.pennywise.domain.summary.CategoryTotal;
 import com.axel.pennywise.domain.transaction.TransactionRepository;
 import com.axel.pennywise.domain.transaction.TransactionType;
@@ -18,6 +20,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +32,9 @@ public class BudgetService {
   private final BudgetRepository budgetRepo;
   private final CategoryRepository categoryRepo;
   private final TransactionRepository txRepo;
+  private final CacheEvictionService cacheEvictionService;
 
+  @Cacheable(cacheNames = CacheConfig.BUDGETS, key = "#book.id.toString() + ':' + #month.toString()")
   @Transactional(readOnly = true)
   public List<BudgetResponse> list(BookEntity book, YearMonth month) {
     LocalDate monthStart = month.atDay(1);
@@ -86,6 +91,7 @@ public class BudgetService {
 
     budget.setAmountMinor(amountMinor);
     BudgetEntity saved = budgetRepo.save(budget);
+    cacheEvictionService.evictBudgetMonth(book.getId(), month.toString());
     long spentMinor = spentByCategory(book.getId(), month).getOrDefault(categoryId, 0L);
     return toResponse(saved, month, spentMinor);
   }
@@ -104,6 +110,7 @@ public class BudgetService {
 
     budget.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
     budgetRepo.save(budget);
+    cacheEvictionService.evictBudgetMonth(book.getId(), month.toString());
   }
 
   public YearMonth parseMonthOrThrow(String month) {

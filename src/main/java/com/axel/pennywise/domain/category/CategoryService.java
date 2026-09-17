@@ -1,9 +1,12 @@
 package com.axel.pennywise.domain.category;
 
+import com.axel.pennywise.config.CacheConfig;
 import com.axel.pennywise.domain.book.BookEntity;
+import com.axel.pennywise.domain.summary.CacheEvictionService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +15,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CategoryService {
   private final CategoryRepository repo;
+  private final CacheEvictionService cacheEvictionService;
+
+  @Cacheable(cacheNames = CacheConfig.CATEGORIES, key = "#book.id.toString()")
+  @Transactional(readOnly = true)
+  public List<CategoryEntity> list(BookEntity book) {
+    return repo.findAllByBook_IdAndDeletedAtIsNull(book.getId());
+  }
 
   @Transactional
   public void seedDefaults(BookEntity book) {
@@ -68,6 +78,7 @@ public class CategoryService {
         book.getId(),
         type,
         name);
+    cacheEvictionService.evictCategories(book.getId());
     return saved;
   }
 

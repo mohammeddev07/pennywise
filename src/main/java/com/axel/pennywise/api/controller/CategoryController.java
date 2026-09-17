@@ -8,6 +8,8 @@ import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.book.BookService;
 import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryRepository;
+import com.axel.pennywise.domain.category.CategoryService;
+import com.axel.pennywise.domain.summary.CacheEvictionService;
 import com.axel.pennywise.domain.transaction.TransactionRepository;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserService;
@@ -33,7 +35,9 @@ public class CategoryController {
   private final UserService userService;
   private final BookService bookService;
   private final CategoryRepository categoryRepo;
+  private final CategoryService categoryService;
   private final TransactionRepository txRepo;
+  private final CacheEvictionService cacheEvictionService;
 
   private static final String LOCAL = "local";
   private static final String NOT_FOUND = "NOT_FOUND";
@@ -56,9 +60,7 @@ public class CategoryController {
       log.debug("Book verified for listing categories: bookId={}", book.getId());
 
       List<CategoryResponse> items =
-          categoryRepo.findAllByBook_IdAndDeletedAtIsNull(book.getId()).stream()
-              .map(this::toResponse)
-              .toList();
+          categoryService.list(book).stream().map(this::toResponse).toList();
       log.info("Categories listed: bookId={}, count={}", bookId, items.size());
 
       return ResponseEntity.ok(new ItemsResponse<>(items));
@@ -113,6 +115,7 @@ public class CategoryController {
         c.getType(),
         c.getName());
 
+    cacheEvictionService.evictCategories(bookId);
     return ResponseEntity.status(201).eTag(etag(c.getVersion())).body(toResponse(c));
   }
 
@@ -153,6 +156,8 @@ public class CategoryController {
 
     requireIfMatch(c.getVersion(), ifMatch);
 
+    boolean nameChanged = false;
+
     // name update with normalization + uniqueness check
     if (req.name() != null) {
       String normalized = normalizeName(req.name());
@@ -161,7 +166,7 @@ public class CategoryController {
             HttpStatus.BAD_REQUEST, VALIDATION_ERROR, "Category name cannot be blank");
       }
 
-      boolean nameChanged = !normalized.equalsIgnoreCase(c.getName());
+      nameChanged = !normalized.equalsIgnoreCase(c.getName());
       if (nameChanged) {
         boolean exists =
             categoryRepo.existsByBook_IdAndTypeAndNameIgnoreCaseAndDeletedAtIsNull(
@@ -197,6 +202,9 @@ public class CategoryController {
         bookId,
         c.getName(),
         c.isDisabled());
+
+    cacheEvictionService.evictCategories(bookId);
+    if (nameChanged) cacheEvictionService.evictBook(bookId);
 
     return ResponseEntity.ok().eTag(etag(c.getVersion())).body(toResponse(c));
   }
@@ -234,6 +242,7 @@ public class CategoryController {
       c.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
     }
     categoryRepo.save(c);
+    cacheEvictionService.evictCategories(bookId);
 
     return ResponseEntity.noContent().build();
   }
