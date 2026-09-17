@@ -3,7 +3,7 @@
 Branch: `feature/coldstart-and-read-caching` (mirrored in `pennywise-mobile`).
 Two unrelated fixes tracked under one branch per request.
 
-## 1. Mobile: cold-start-aware networking + no false logout (pennywise-mobile repo)
+## 1. Mobile: cold-start-aware networking + no false logout (pennywise-mobile repository)
 
 Status: investigated, plan proposed, **not yet implemented** (pending confirmation).
 
@@ -27,7 +27,7 @@ Status: investigated, plan proposed, **not yet implemented** (pending confirmati
   (`src/app/_layout.tsx:142-149`). A cold backend timing out on the first `getMe()`
   call after launch silently logs the user out and wipes local data, despite a valid
   token.
-- No `AppState` listener anywhere in the repo. No on-device network-reachability
+- No `AppState` listener anywhere in the repository. No on-device network-reachability
   check (no NetInfo/expo-network dependency).
 
 ### Proposed fix
@@ -43,7 +43,7 @@ Status: investigated, plan proposed, **not yet implemented** (pending confirmati
    flight; reserve "Can't connect to server. Check your internet connection." for
    cases with no cold-start signal, ideally gated on an actual on-device offline
    check (requires adding `@react-native-community/netinfo` or `expo-network` —
-   neither exists in the repo today).
+   neither exists in the repository today).
 4. Genuine 401/403 still logs out — unaffected, since the interceptor already
    handles that correctly.
 
@@ -51,7 +51,7 @@ Open question before implementing: confirm scope of point 2/3 (AppState listener
 netinfo dependency) vs a smaller diff that only fixes point 1 (the actual silent-logout
 bug) and leaves timeout-scoping as-is.
 
-## 2. Backend: caching for hot read endpoints (pennywise repo)
+## 2. Backend: caching for hot read endpoints (pennywise repository)
 
 Status: investigated, plan proposed, **not yet implemented**.
 
@@ -97,13 +97,13 @@ or data changes outside these code paths — never relied on for correctness.
 - `bookBalance`: key = `bookId`
 - `monthlySummary`: key = `bookId + ':' + yearMonth`
 - `categories`: key = `bookId`
-- `books`: key = `ownerId` (user id)
+- `books`: key = `ownerId` (user ID)
 - `budgets`: key = `bookId + ':' + yearMonth`
 
 Cache at the service layer (`SummaryService`, `BookService`, `BudgetService`), not the
 controller layer, since those methods already take the real key material (`BookEntity`,
 `UserEntity`) as parameters. One exception: `CategoryController.list()` currently
-inlines the repo query directly in the controller — needs a small `CategoryService.list(book)`
+inlines the repository query directly in the controller — needs a small `CategoryService.list(book)`
 extraction (mirroring the service pattern every other domain already uses) so
 `@Cacheable(key = "#book.id")` has a clean method to attach to. This isn't a new
 abstraction, it's filling in the one domain that's inconsistent with the existing
