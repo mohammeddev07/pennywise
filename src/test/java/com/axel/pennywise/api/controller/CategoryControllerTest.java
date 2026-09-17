@@ -13,7 +13,9 @@ import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.book.BookService;
 import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryRepository;
+import com.axel.pennywise.domain.category.CategoryService;
 import com.axel.pennywise.domain.category.CategoryType;
+import com.axel.pennywise.domain.summary.CacheEvictionService;
 import com.axel.pennywise.domain.transaction.TransactionRepository;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserService;
@@ -50,7 +52,9 @@ class CategoryControllerTest {
   @Mock private UserService userService;
   @Mock private BookService bookService;
   @Mock private CategoryRepository categoryRepository;
+  @Mock private CategoryService categoryService;
   @Mock private TransactionRepository transactionRepository;
+  @Mock private CacheEvictionService cacheEvictionService;
 
   private ObjectMapper objectMapper;
 
@@ -66,7 +70,13 @@ class CategoryControllerTest {
     objectMapper = new ObjectMapper().findAndRegisterModules();
 
     CategoryController controller =
-        new CategoryController(userService, bookService, categoryRepository, transactionRepository);
+        new CategoryController(
+            userService,
+            bookService,
+            categoryRepository,
+            categoryService,
+            transactionRepository,
+            cacheEvictionService);
     mockMvc =
         MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new TestApiExceptionHandler())
@@ -105,8 +115,7 @@ class CategoryControllerTest {
   void testListCategories() throws Exception {
     when(userService.getOrCreate(any(), any(), any())).thenReturn(testUser);
     when(bookService.requireOwned(bookId, testUser)).thenReturn(testBook);
-    when(categoryRepository.findAllByBook_IdAndDeletedAtIsNull(bookId))
-        .thenReturn(Collections.singletonList(testCategory));
+    when(categoryService.list(testBook)).thenReturn(Collections.singletonList(testCategory));
 
     mockMvc
         .perform(get("/v1/books/{bookId}/categories", bookId).with(auth()))
@@ -114,8 +123,8 @@ class CategoryControllerTest {
 
     verify(userService).getOrCreate(any(), any(), any());
     verify(bookService).requireOwned(bookId, testUser);
-    verify(categoryRepository).findAllByBook_IdAndDeletedAtIsNull(bookId);
-    verifyNoMoreInteractions(userService, bookService, categoryRepository);
+    verify(categoryService).list(testBook);
+    verifyNoMoreInteractions(userService, bookService, categoryService, categoryRepository);
   }
 
   @Test
