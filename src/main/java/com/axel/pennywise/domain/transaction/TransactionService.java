@@ -7,6 +7,7 @@ import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryRepository;
 import com.axel.pennywise.domain.category.CategoryType;
+import com.axel.pennywise.domain.summary.CacheEvictionService;
 import com.axel.pennywise.exception.ApiException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.DateTimeException;
@@ -32,6 +33,7 @@ public class TransactionService {
   private final TransactionRepository repo;
   private final CategoryRepository categoryRepo;
   private final ObjectMapper objectMapper;
+  private final CacheEvictionService cacheEvictionService;
 
   private record TxCursor(LocalDate occurredOn, OffsetDateTime createdAt, UUID id) {}
 
@@ -96,6 +98,7 @@ public class TransactionService {
         type,
         amountMinor);
 
+    cacheEvictionService.evictBook(book.getId());
     return saved;
   }
 
@@ -216,7 +219,9 @@ public class TransactionService {
     if (req.paymentMethod() != null) tx.setPaymentMethod(req.paymentMethod());
     if (req.note() != null) tx.setNote(req.note());
 
-    return repo.save(tx);
+    TransactionEntity saved = repo.save(tx);
+    cacheEvictionService.evictBook(saved.getBook().getId());
+    return saved;
   }
 
   @Transactional
@@ -225,6 +230,7 @@ public class TransactionService {
       tx.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
     }
     repo.save(tx);
+    cacheEvictionService.evictBook(tx.getBook().getId());
   }
 
   private TxCursor decodeCursorOrNull(String cursor) {

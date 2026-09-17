@@ -11,6 +11,7 @@ import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryRepository;
 import com.axel.pennywise.domain.category.CategoryType;
+import com.axel.pennywise.domain.summary.CacheEvictionService;
 import com.axel.pennywise.exception.ApiException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -29,6 +30,7 @@ class TransactionServiceTest {
 
   @Mock private TransactionRepository repo;
   @Mock private CategoryRepository categoryRepo;
+  @Mock private CacheEvictionService cacheEvictionService;
 
   private TransactionService service;
 
@@ -42,7 +44,7 @@ class TransactionServiceTest {
   void setUp() {
     // Use a real ObjectMapper so cursor encode/decode works deterministically
     ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-    service = new TransactionService(repo, categoryRepo, objectMapper);
+    service = new TransactionService(repo, categoryRepo, objectMapper, cacheEvictionService);
 
     bookId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     UUID catId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");

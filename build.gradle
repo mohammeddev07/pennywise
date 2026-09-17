@@ -30,6 +30,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web' // Web + JSON
 	implementation 'org.springframework.boot:spring-boot-starter-validation' // DTO input validation
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa' // Data access
+	implementation 'org.springframework.boot:spring-boot-starter-cache' // Read-endpoint caching
+	implementation 'com.github.ben-manes.caffeine:caffeine' // In-memory cache backend
 	runtimeOnly 'org.postgresql:postgresql'
 	implementation 'org.flywaydb:flyway-core' // Flyway for DB migrations
 	runtimeOnly 'org.flywaydb:flyway-database-postgresql'

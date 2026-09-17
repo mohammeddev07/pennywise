@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.axel.pennywise.domain.category.CategoryService;
+import com.axel.pennywise.domain.summary.CacheEvictionService;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.exception.ApiException;
 import java.util.List;
@@ -23,6 +24,7 @@ class BookServiceTest {
 
   @Mock private BookRepository repo;
   @Mock private CategoryService categoryService;
+  @Mock private CacheEvictionService cacheEvictionService;
 
   @InjectMocks private BookService bookService;
 
@@ -52,7 +54,7 @@ class BookServiceTest {
     assertSame(b2, result.get(1));
 
     verify(repo).findAllByOwner_IdAndDeletedAtIsNull(userId);
-    verifyNoMoreInteractions(repo, categoryService);
+    verifyNoMoreInteractions(repo, categoryService, cacheEvictionService);
   }
 
   @Test
@@ -79,7 +81,8 @@ class BookServiceTest {
                         && Long.valueOf(5000L).equals(b.getOpeningBalanceMinor())));
 
     verify(categoryService).seedDefaults(saved);
-    verifyNoMoreInteractions(repo, categoryService);
+    verify(cacheEvictionService).evictBooks(userId);
+    verifyNoMoreInteractions(repo, categoryService, cacheEvictionService);
   }
 
   @Test
@@ -91,7 +94,7 @@ class BookServiceTest {
 
     assertEquals(HttpStatus.BAD_REQUEST, ex.status());
     assertEquals("Invalid book timezone", ex.getMessage());
-    verifyNoInteractions(repo, categoryService);
+    verifyNoInteractions(repo, categoryService, cacheEvictionService);
   }
 
   @Test
@@ -99,6 +102,7 @@ class BookServiceTest {
     BookEntity existing = new BookEntity();
     existing.setId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
     existing.setName("Old");
+    existing.setOwner(user);
 
     when(repo.save(existing)).thenReturn(existing);
 
@@ -108,7 +112,8 @@ class BookServiceTest {
     assertEquals("New Name", existing.getName());
 
     verify(repo).save(existing);
-    verifyNoMoreInteractions(repo, categoryService);
+    verify(cacheEvictionService).evictBooks(userId);
+    verifyNoMoreInteractions(repo, categoryService, cacheEvictionService);
   }
 
   @Test
@@ -124,7 +129,7 @@ class BookServiceTest {
     assertSame(found, result);
 
     verify(repo).findByIdAndOwner_IdAndDeletedAtIsNull(bookId, userId);
-    verifyNoMoreInteractions(repo, categoryService);
+    verifyNoMoreInteractions(repo, categoryService, cacheEvictionService);
   }
 
   @Test
@@ -140,6 +145,6 @@ class BookServiceTest {
     assertEquals("Book not found", ex.getMessage());
 
     verify(repo).findByIdAndOwner_IdAndDeletedAtIsNull(bookId, userId);
-    verifyNoMoreInteractions(repo, categoryService);
+    verifyNoMoreInteractions(repo, categoryService, cacheEvictionService);
   }
 }

@@ -9,6 +9,7 @@ import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryRepository;
 import com.axel.pennywise.domain.category.CategoryType;
+import com.axel.pennywise.domain.summary.CacheEvictionService;
 import com.axel.pennywise.domain.summary.CategoryTotal;
 import com.axel.pennywise.domain.transaction.TransactionRepository;
 import com.axel.pennywise.domain.transaction.TransactionType;
@@ -31,6 +32,7 @@ class BudgetServiceTest {
   @Mock private BudgetRepository budgetRepo;
   @Mock private CategoryRepository categoryRepo;
   @Mock private TransactionRepository txRepo;
+  @Mock private CacheEvictionService cacheEvictionService;
 
   private BudgetService service;
   private BookEntity book;
@@ -41,7 +43,7 @@ class BudgetServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new BudgetService(budgetRepo, categoryRepo, txRepo);
+    service = new BudgetService(budgetRepo, categoryRepo, txRepo, cacheEvictionService);
 
     bookId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     categoryId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
