@@ -8,10 +8,11 @@ Two unrelated fixes tracked under one branch per request.
 Status: investigated, plan proposed, **not yet implemented** (pending confirmation).
 
 ### Findings
+
 - `src/shared/api/client.ts`: default timeout 15s, uniform for all requests. On
   `ECONNABORTED`/`ETIMEDOUT` the response interceptor retries once with a 45s timeout
   (`COLD_START_RETRY_TIMEOUT_MS`) — already merged from `fix/backend-cold-start-handling`.
-  Retry fires for *any* timed-out request, not just the first request after app
+  Retry fires for _any_ timed-out request, not just the first request after app
   resume/foreground, so a genuinely dead connection also pays ~60s before failing.
 - `src/shared/api/errors.ts:getApiErrorMessage`: already distinguishes timeout
   ("Server is taking longer than usual...") from generic no-response failures
@@ -20,7 +21,7 @@ Status: investigated, plan proposed, **not yet implemented** (pending confirmati
 - `apiClient`'s response interceptor (`client.ts:65-74`) correctly scopes logout to
   `err.response?.status === 401` only — timeout has no `err.response`, so it does not
   trigger `handleUnauthorized()`. This path is fine as-is.
-- **Bug**: `src/features/auth/store.ts:203-225`, `validateSession()`. Catches *any*
+- **Bug**: `src/features/auth/store.ts:203-225`, `validateSession()`. Catches _any_
   error from `getMe()` — timeout, network-unreachable, or 401 alike — and
   unconditionally calls `logout()`, which wipes `SecureStore` token + all local
   feature stores (`clearAccountState()`). Called once on app bootstrap
@@ -31,6 +32,7 @@ Status: investigated, plan proposed, **not yet implemented** (pending confirmati
   check (no NetInfo/expo-network dependency).
 
 ### Proposed fix
+
 1. `validateSession()`: only logout on real auth failure (401/403). Timeout/network
    errors keep `sessionStatus: "authenticated"` (using the persisted `user`) and let
    the UI retry. Needs a shared `isAuthError(err)` helper alongside the existing
@@ -57,15 +59,15 @@ Status: investigated, plan proposed, **not yet implemented**.
 
 ### Hot-path findings (from mobile `shared/api/*.ts` call sites)
 
-| Endpoint | Called from (mobile) | Frequency |
-|---|---|---|
-| `GET /v1/books/{bookId}/balance` | `home.tsx` on mount | every home-tab visit |
-| `GET /v1/books/{bookId}/summary/monthly` | `home.tsx`, `analytics.tsx` (x2), `categories.tsx` | every visit to 3 different tabs |
-| `GET /v1/books/{bookId}/summary/range` | `transactions.tsx`, on-demand (date range picker) | on-demand, high key cardinality |
-| `GET /v1/books/{bookId}/transactions` | `transactions/store.ts`, on mount + pagination | frequent, but cursor+filter params give near-unbounded key space |
-| `GET /v1/books` | `books/store.ts`, on mount | once per session typically |
-| `GET /v1/books/{bookId}/categories` | `categories/store.ts`, on mount | once per session/book-switch |
-| `GET /v1/books/{bookId}/budgets` | `budgets/store.ts`, on mount, per month | once per month view |
+| Endpoint                                 | Called from (mobile)                               | Frequency                                                        |
+| ---------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------- |
+| `GET /v1/books/{bookId}/balance`         | `home.tsx` on mount                                | every home-tab visit                                             |
+| `GET /v1/books/{bookId}/summary/monthly` | `home.tsx`, `analytics.tsx` (x2), `categories.tsx` | every visit to 3 different tabs                                  |
+| `GET /v1/books/{bookId}/summary/range`   | `transactions.tsx`, on-demand (date range picker)  | on-demand, high key cardinality                                  |
+| `GET /v1/books/{bookId}/transactions`    | `transactions/store.ts`, on mount + pagination     | frequent, but cursor+filter params give near-unbounded key space |
+| `GET /v1/books`                          | `books/store.ts`, on mount                         | once per session typically                                       |
+| `GET /v1/books/{bookId}/categories`      | `categories/store.ts`, on mount                    | once per session/book-switch                                     |
+| `GET /v1/books/{bookId}/budgets`         | `budgets/store.ts`, on mount, per month            | once per month view                                              |
 
 **Recommendation**: cache `balance`, `summary/monthly`, `categories` list, `books`
 list, `budgets` list. **Skip** caching the raw transaction list (cursor + filter

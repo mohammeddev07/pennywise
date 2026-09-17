@@ -34,7 +34,9 @@ public class BudgetService {
   private final TransactionRepository txRepo;
   private final CacheEvictionService cacheEvictionService;
 
-  @Cacheable(cacheNames = CacheConfig.BUDGETS, key = "#book.id.toString() + ':' + #month.toString()")
+  @Cacheable(
+      cacheNames = CacheConfig.BUDGETS,
+      key = "#book.id.toString() + ':' + #month.toString()")
   @Transactional(readOnly = true)
   public List<BudgetResponse> list(BookEntity book, YearMonth month) {
     LocalDate monthStart = month.atDay(1);
