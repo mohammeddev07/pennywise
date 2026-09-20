@@ -7,6 +7,7 @@ import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryRepository;
 import com.axel.pennywise.domain.category.CategoryType;
+import com.axel.pennywise.domain.common.MoneyLimits;
 import com.axel.pennywise.domain.summary.CacheEvictionService;
 import com.axel.pennywise.exception.ApiException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,6 +19,7 @@ import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,10 +67,7 @@ public class TransactionService {
         amountMinor,
         occurredOn);
 
-    if (amountMinor <= 0) {
-      log.warn("Invalid amount for transaction: amountMinor={}", amountMinor);
-      throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "amountMinor must be > 0");
-    }
+    requireValidAmount(amountMinor);
 
     validateCategoryType(category, type);
 
@@ -87,7 +86,7 @@ public class TransactionService {
     tx.setOccurredAt(resolveOccurredAt(book, resolvedOccurredOn, occurredAt));
     tx.setTitle(normalizeNullable(title));
     tx.setPaymentMethod(paymentMethod);
-    tx.setNote(note);
+    tx.setNote(normalizeNullable(note));
 
     TransactionEntity saved = repo.save(tx);
     log.info(
@@ -183,14 +182,24 @@ public class TransactionService {
     return new CursorPage<>(rows, nextCursor);
   }
 
+  /**
+   * Applies a PATCH. Omitted properties are unchanged; explicit null clears title/note/
+   * paymentMethod (required fields reject null at deserialization). The date pair is resolved
+   * together: occurredOn alone resets occurredAt to book-local midnight, occurredAt alone derives
+   * occurredOn in the book timezone, both together must agree. createdAt and id are never
+   * touched; updatedAt and version advance only if Hibernate finds a real change at flush, so a
+   * no-op PATCH returns the same timestamps and version.
+   */
   @Transactional
   public TransactionEntity update(TransactionEntity tx, TransactionUpdateRequest req) {
-    TransactionType resolvedType = req.type() == null ? tx.getType() : req.type();
+    TransactionType resolvedType =
+        req.type() == null ? tx.getType() : required(req.type(), "type");
     CategoryEntity resolvedCategory = tx.getCategory();
     if (req.categoryId() != null) {
+      UUID categoryId = required(req.categoryId(), "categoryId");
       resolvedCategory =
           categoryRepo
-              .findByIdAndBook_IdAndDeletedAtIsNull(req.categoryId(), tx.getBook().getId())
+              .findByIdAndBook_IdAndDeletedAtIsNull(categoryId, tx.getBook().getId())
               .orElseThrow(
                   () -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Category not found"));
     }
@@ -200,28 +209,39 @@ public class TransactionService {
     tx.setCategory(resolvedCategory);
 
     if (req.amountMinor() != null) {
-      if (req.amountMinor() <= 0) {
-        throw new ApiException(
-            HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "amountMinor must be > 0");
-      }
-      tx.setAmountMinor(req.amountMinor());
+      long amountMinor = required(req.amountMinor(), "amountMinor");
+      requireValidAmount(amountMinor);
+      tx.setAmountMinor(amountMinor);
     }
 
-    if (req.occurredOn() != null) {
-      tx.setOccurredOn(req.occurredOn());
-      tx.setOccurredAt(resolveOccurredAt(tx.getBook(), req.occurredOn(), req.occurredAt()));
-    } else if (req.occurredAt() != null) {
-      tx.setOccurredAt(req.occurredAt());
-      tx.setOccurredOn(resolveOccurredOn(tx.getBook(), null, req.occurredAt()));
+    LocalDate reqOccurredOn =
+        req.occurredOn() == null ? null : required(req.occurredOn(), "occurredOn");
+    OffsetDateTime reqOccurredAt =
+        req.occurredAt() == null ? null : required(req.occurredAt(), "occurredAt");
+    if (reqOccurredOn != null || reqOccurredAt != null) {
+      LocalDate occurredOn = resolveOccurredOn(tx.getBook(), reqOccurredOn, reqOccurredAt);
+      tx.setOccurredOn(occurredOn);
+      tx.setOccurredAt(resolveOccurredAt(tx.getBook(), occurredOn, reqOccurredAt));
     }
 
-    if (req.title() != null) tx.setTitle(normalizeNullable(req.title()));
-    if (req.paymentMethod() != null) tx.setPaymentMethod(req.paymentMethod());
-    if (req.note() != null) tx.setNote(req.note());
+    if (req.title() != null) tx.setTitle(normalizeNullable(req.title().orElse(null)));
+    if (req.note() != null) tx.setNote(normalizeNullable(req.note().orElse(null)));
+    if (req.paymentMethod() != null) tx.setPaymentMethod(req.paymentMethod().orElse(null));
 
     TransactionEntity saved = repo.save(tx);
     cacheEvictionService.evictBook(saved.getBook().getId());
     return saved;
+  }
+
+  /** A required PATCH field was sent as explicit null. */
+  private static <T> T required(java.util.Optional<T> field, String name) {
+    return field.orElseThrow(
+        () ->
+            new ApiException(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "Field must not be null: " + name,
+                List.of(Map.of("field", name, "message", "must not be null"))));
   }
 
   @Transactional
@@ -253,16 +273,45 @@ public class TransactionService {
     }
   }
 
+  /**
+   * occurredOn is the canonical book-local ledger date; occurredAt is the event instant. When both
+   * are supplied they must name the same book-local day - otherwise the row would sort under one
+   * day and display another. Rows written before this rule (V4 backfill, date-only imports) are
+   * never reinterpreted; only new requests are checked.
+   */
   private LocalDate resolveOccurredOn(
       BookEntity book, LocalDate occurredOn, OffsetDateTime occurredAt) {
-    if (occurredOn != null) return occurredOn;
-    return occurredAt == null ? null : occurredAt.atZoneSameInstant(zoneIdFor(book)).toLocalDate();
+    if (occurredAt == null) return occurredOn;
+    LocalDate derived = occurredAt.atZoneSameInstant(zoneIdFor(book)).toLocalDate();
+    if (occurredOn != null && !occurredOn.equals(derived)) {
+      throw new ApiException(
+          HttpStatus.BAD_REQUEST,
+          "VALIDATION_ERROR",
+          "occurredOn must match occurredAt in the book timezone ("
+              + book.getTimezone()
+              + "): occurredAt falls on "
+              + derived);
+    }
+    return occurredOn != null ? occurredOn : derived;
   }
 
   private OffsetDateTime resolveOccurredAt(
       BookEntity book, LocalDate occurredOn, OffsetDateTime occurredAt) {
-    if (occurredAt != null) return occurredAt;
+    if (occurredAt != null) return occurredAt.withOffsetSameInstant(ZoneOffset.UTC);
     return occurredOn.atStartOfDay(zoneIdFor(book)).toOffsetDateTime();
+  }
+
+  private void requireValidAmount(long amountMinor) {
+    if (amountMinor <= 0) {
+      log.warn("Invalid amount for transaction: amountMinor={}", amountMinor);
+      throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "amountMinor must be > 0");
+    }
+    if (amountMinor > MoneyLimits.MAX_TRANSACTION_AMOUNT_MINOR) {
+      throw new ApiException(
+          HttpStatus.BAD_REQUEST,
+          "VALIDATION_ERROR",
+          "amountMinor must be <= " + MoneyLimits.MAX_TRANSACTION_AMOUNT_MINOR);
+    }
   }
 
   private ZoneId zoneIdFor(BookEntity book) {

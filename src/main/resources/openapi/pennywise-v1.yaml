@@ -386,6 +386,21 @@ paths:
     patch:
       tags: [Transactions]
       summary: Update transaction (optimistic concurrency)
+      description: |
+        Partial update. Presence semantics:
+        - omitted property: unchanged
+        - `title`, `note`, `paymentMethod`: explicit `null` clears the value; a blank string also clears `title`/`note`
+        - `type`, `amountMinor`, `occurredOn`, `occurredAt`, `categoryId`: explicit `null` is rejected (400 VALIDATION_ERROR)
+        - `id`, `bookId`, `createdAt`, `updatedAt`, `deletedAt`, `version`, `externalId` or any unknown property: rejected (400 VALIDATION_ERROR, `details[0].field` names it); the record is never altered
+        - an empty object is rejected
+
+        Dates: `occurredOn` alone moves the ledger day and resets `occurredAt` to book-local midnight;
+        `occurredAt` alone derives `occurredOn` in the book timezone; both together must agree.
+
+        The response body and `ETag` carry the committed values. `createdAt` and `id` never change.
+        `updatedAt` and `version` advance only when the row actually changed: a PATCH that repeats the
+        stored values is a no-op and returns the unchanged `version`/`updatedAt` (the `If-Match` you sent
+        stays valid).
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -738,34 +753,56 @@ components:
 
     TransactionCreateRequest:
       type: object
+      description: |
+        Audit fields (`id`, `createdAt`, `updatedAt`, `version`, `externalId`, ...) are server-controlled;
+        any unknown property is rejected with 400 VALIDATION_ERROR. `externalId` is only assigned by import.
       required: [type, amountMinor, categoryId]
+      additionalProperties: false
       properties:
         type: { $ref: "#/components/schemas/TransactionType" }
-        amountMinor: { type: integer, format: int64, minimum: 1 }
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 999999999999999
+          description: Integer minor units of the book currency (cents for USD, whole yen for JPY). See MoneyLimits.
         occurredOn:
           type: string
           format: date
-          description: Backwards-compatible date field. Required when occurredAt is omitted.
+          description: |
+            Canonical ledger date in the book timezone; lists, summaries and budgets group by this.
+            Required when occurredAt is omitted. When both are sent they must name the same book-local day.
         occurredAt:
           type: string
           format: date-time
-          description: Transaction timestamp. If provided without occurredOn, the book timezone is used to derive occurredOn.
-        title: { type: string, maxLength: 120, nullable: true }
+          description: |
+            Event instant. If provided without occurredOn, occurredOn is derived in the book timezone.
+            If omitted, stored as occurredOn at book-local midnight. Persisted as a UTC instant.
+        title: { type: string, maxLength: 120, nullable: true, description: Blank is stored as null. }
         categoryId: { type: string, format: uuid }
-        paymentMethod: { $ref: "#/components/schemas/PaymentMethod" }
-        note: { type: string, maxLength: 280, nullable: true }
+        paymentMethod:
+          allOf: [{ $ref: "#/components/schemas/PaymentMethod" }]
+          nullable: true
+          description: Omitted or null is stored as null ("Not specified"); never defaulted to CASH.
+        note: { type: string, maxLength: 280, nullable: true, description: Blank is stored as null. }
 
     TransactionUpdateRequest:
       type: object
+      description: See PATCH /v1/books/{bookId}/transactions/{txId} for presence semantics (omitted = unchanged, null clears nullable fields only).
+      additionalProperties: false
+      minProperties: 1
       properties:
         type: { $ref: "#/components/schemas/TransactionType" }
-        amountMinor: { type: integer, format: int64, minimum: 1 }
-        occurredOn: { type: string, format: date }
-        occurredAt: { type: string, format: date-time }
-        title: { type: string, maxLength: 120, nullable: true }
+        amountMinor: { type: integer, format: int64, minimum: 1, maximum: 999999999999999 }
+        occurredOn: { type: string, format: date, description: Book-local ledger date. Explicit null rejected. }
+        occurredAt: { type: string, format: date-time, description: Event instant. Explicit null rejected. }
+        title: { type: string, maxLength: 120, nullable: true, description: null or blank clears. }
         categoryId: { type: string, format: uuid }
-        paymentMethod: { $ref: "#/components/schemas/PaymentMethod" }
-        note: { type: string, maxLength: 280, nullable: true }
+        paymentMethod:
+          allOf: [{ $ref: "#/components/schemas/PaymentMethod" }]
+          nullable: true
+          description: null clears ("Not specified").
+        note: { type: string, maxLength: 280, nullable: true, description: null or blank clears. }
 
     TransactionCategoryRef:
       type: object
@@ -795,17 +832,37 @@ components:
         bookId: { type: string, format: uuid }
         type: { $ref: "#/components/schemas/TransactionType" }
         amountMinor: { type: integer, format: int64 }
-        occurredOn: { type: string, format: date }
-        occurredAt: { type: string, format: date-time, nullable: true }
+        occurredOn: { type: string, format: date, description: Canonical book-local ledger date. }
+        occurredAt: { type: string, format: date-time, nullable: true, description: Event instant (UTC). }
         title: { type: string, nullable: true }
         categoryId: { type: string, format: uuid }
         category: { $ref: "#/components/schemas/TransactionCategoryRef" }
-        paymentMethod: { $ref: "#/components/schemas/PaymentMethod" }
+        paymentMethod:
+          allOf: [{ $ref: "#/components/schemas/PaymentMethod" }]
+          nullable: true
+          description: null means not specified; clients must display it as such, never as CASH.
         note: { type: string, nullable: true }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-        deletedAt: { type: string, format: date-time, nullable: true }
-        version: { type: integer, format: int64 }
+        externalId:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Import identifier used for duplicate detection. Read-only; never accepted in requests.
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Record creation instant. Immutable (DB trigger); distinct from occurredAt/occurredOn.
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Advances only when a write actually changed the row.
+        deletedAt: { type: string, format: date-time, nullable: true, readOnly: true }
+        version:
+          type: integer
+          format: int64
+          readOnly: true
+          description: Optimistic-concurrency token, echoed as the ETag. Unchanged by no-op writes.
 
     CursorPage_TransactionResponse:
       type: object

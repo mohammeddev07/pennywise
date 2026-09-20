@@ -6,9 +6,11 @@ import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryService;
 import com.axel.pennywise.domain.category.CategoryType;
+import com.axel.pennywise.domain.common.MoneyLimits;
 import com.axel.pennywise.exception.ApiException;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -218,8 +220,12 @@ public class TransactionImportService {
 
     PaymentMethod paymentMethod = parsePaymentMethod(row.paymentMethod());
 
-    long amountMinor =
-        amount.abs().setScale(2, RoundingMode.UNNECESSARY).unscaledValue().longValueExact();
+    BigInteger unscaledMinor = amount.abs().setScale(2, RoundingMode.UNNECESSARY).unscaledValue();
+    if (unscaledMinor.compareTo(BigInteger.valueOf(MoneyLimits.MAX_TRANSACTION_AMOUNT_MINOR)) > 0) {
+      errors.add(reject(row, "INVALID_AMOUNT", "Amount exceeds the supported maximum"));
+      return;
+    }
+    long amountMinor = unscaledMinor.longValueExact();
 
     String externalId = isBlank(row.externalId()) ? null : row.externalId().trim();
     if (externalId != null && isDuplicate(book, externalId)) {
