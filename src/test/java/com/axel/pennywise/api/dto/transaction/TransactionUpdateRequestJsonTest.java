@@ -55,7 +55,8 @@ class TransactionUpdateRequestJsonTest {
 
   @Test
   void explicitNull_onRequiredField_isPresentAndEmpty_soTheServiceCanRejectIt() throws Exception {
-    for (String field : new String[] {"type", "amountMinor", "occurredOn", "occurredAt", "categoryId"}) {
+    for (String field :
+        new String[] {"type", "amountMinor", "occurredOn", "occurredAt", "categoryId"}) {
       TransactionUpdateRequest req =
           mapper.readValue("{\"" + field + "\":null}", TransactionUpdateRequest.class);
       assertFalse(req.isEmpty(), field);
@@ -69,7 +70,9 @@ class TransactionUpdateRequestJsonTest {
   @Test
   void auditAndReadOnlyFields_areRejected() {
     for (String field :
-        new String[] {"id", "bookId", "createdAt", "updatedAt", "deletedAt", "version", "externalId"}) {
+        new String[] {
+          "id", "bookId", "createdAt", "updatedAt", "deletedAt", "version", "externalId"
+        }) {
       String json = "{\"title\":\"x\",\"" + field + "\":\"2026-01-01T00:00:00Z\"}";
       UnrecognizedPropertyException ex =
           assertThrows(

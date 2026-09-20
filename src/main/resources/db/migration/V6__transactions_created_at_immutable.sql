@@ -20,5 +20,5 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trg_transactions_created_at_immutable
     BEFORE UPDATE ON transactions
     FOR EACH ROW
-    WHEN (OLD.created_at IS DISTINCT FROM NEW.created_at)
+    WHEN (old.created_at IS DISTINCT FROM new.created_at)
 EXECUTE FUNCTION reject_created_at_change();

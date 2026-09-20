@@ -115,32 +115,32 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
   @SuppressWarnings("java:S107") // many params justified by query filtering (repository interface)
   @Query(
       """
-      select t
-      from TransactionEntity t
-        join fetch t.book b
-        join fetch t.category c
-      where b.id = :bookId
-        and t.deletedAt is null
-        and (:fromDate is null or t.occurredOn >= :fromDate)
-        and (:toDate   is null or t.occurredOn <= :toDate)
-        and (:type     is null or t.type = :type)
-        and (:categoryId is null or c.id = :categoryId)
-        and (
-             :searchLike is null
-          or (t.title is not null and lower(t.title) like :searchLike)
-          or (t.note is not null and lower(t.note) like :searchLike)
-          or lower(c.name) like :searchLike
-          or (:qPaymentMethod is not null and t.paymentMethod = :qPaymentMethod)
-          or (:qType is not null and t.type = :qType)
-          or (:amountSearch is not null and t.amountMinor = :amountSearch)
-        )
-        and (
-             t.occurredOn < :cursorOccurredOn
-          or (t.occurredOn = :cursorOccurredOn and t.createdAt < :cursorCreatedAt)
-          or (t.occurredOn = :cursorOccurredOn and t.createdAt = :cursorCreatedAt and t.id < :cursorId)
-        )
-      order by t.occurredOn desc, t.createdAt desc, t.id desc
-      """)
+select t
+from TransactionEntity t
+  join fetch t.book b
+  join fetch t.category c
+where b.id = :bookId
+  and t.deletedAt is null
+  and (:fromDate is null or t.occurredOn >= :fromDate)
+  and (:toDate   is null or t.occurredOn <= :toDate)
+  and (:type     is null or t.type = :type)
+  and (:categoryId is null or c.id = :categoryId)
+  and (
+       :searchLike is null
+    or (t.title is not null and lower(t.title) like :searchLike)
+    or (t.note is not null and lower(t.note) like :searchLike)
+    or lower(c.name) like :searchLike
+    or (:qPaymentMethod is not null and t.paymentMethod = :qPaymentMethod)
+    or (:qType is not null and t.type = :qType)
+    or (:amountSearch is not null and t.amountMinor = :amountSearch)
+  )
+  and (
+       t.occurredOn < :cursorOccurredOn
+    or (t.occurredOn = :cursorOccurredOn and t.createdAt < :cursorCreatedAt)
+    or (t.occurredOn = :cursorOccurredOn and t.createdAt = :cursorCreatedAt and t.id < :cursorId)
+  )
+order by t.occurredOn desc, t.createdAt desc, t.id desc
+""")
   List<TransactionEntity> listForBookAfterCursor(
       @Param("bookId") UUID bookId,
       @Param("fromDate") LocalDate fromDate,
@@ -168,26 +168,26 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
 
   @Query(
       """
-      select
-        coalesce(sum(case when t.type = TransactionType.INCOME then t.amountMinor else 0 end), 0) as incomeTotalMinor,
-        coalesce(sum(case when t.type = TransactionType.EXPENSE then t.amountMinor else 0 end), 0) as expenseTotalMinor
-      from TransactionEntity t
-      where t.deletedAt is null
-        and t.book.id = :bookId
-      """)
+select
+  coalesce(sum(case when t.type = TransactionType.INCOME then t.amountMinor else 0 end), 0) as incomeTotalMinor,
+  coalesce(sum(case when t.type = TransactionType.EXPENSE then t.amountMinor else 0 end), 0) as expenseTotalMinor
+from TransactionEntity t
+where t.deletedAt is null
+  and t.book.id = :bookId
+""")
   SummaryTotalsView sumTotalsAll(@Param("bookId") UUID bookId);
 
   @Query(
       """
-      select
-        coalesce(sum(case when t.type = TransactionType.INCOME then t.amountMinor else 0 end), 0) as incomeTotalMinor,
-        coalesce(sum(case when t.type = TransactionType.EXPENSE then t.amountMinor else 0 end), 0) as expenseTotalMinor
-      from TransactionEntity t
-      where t.deletedAt is null
-        and t.book.id = :bookId
-        and t.occurredOn >= :fromDate
-        and t.occurredOn <  :toDate
-      """)
+select
+  coalesce(sum(case when t.type = TransactionType.INCOME then t.amountMinor else 0 end), 0) as incomeTotalMinor,
+  coalesce(sum(case when t.type = TransactionType.EXPENSE then t.amountMinor else 0 end), 0) as expenseTotalMinor
+from TransactionEntity t
+where t.deletedAt is null
+  and t.book.id = :bookId
+  and t.occurredOn >= :fromDate
+  and t.occurredOn <  :toDate
+""")
   SummaryTotalsView sumTotalsRange(
       @Param("bookId") UUID bookId,
       @Param("fromDate") LocalDate fromDate,
@@ -197,15 +197,15 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
   // "could not determine data type of parameter" and broke GET /summary/range.
   @Query(
       """
-      select
-        coalesce(sum(case when t.type = TransactionType.INCOME then t.amountMinor else 0 end), 0) as incomeTotalMinor,
-        coalesce(sum(case when t.type = TransactionType.EXPENSE then t.amountMinor else 0 end), 0) as expenseTotalMinor
-      from TransactionEntity t
-      where t.deletedAt is null
-        and t.book.id = :bookId
-        and t.occurredOn >= :fromDate
-        and t.occurredOn <  :toDate
-      """)
+select
+  coalesce(sum(case when t.type = TransactionType.INCOME then t.amountMinor else 0 end), 0) as incomeTotalMinor,
+  coalesce(sum(case when t.type = TransactionType.EXPENSE then t.amountMinor else 0 end), 0) as expenseTotalMinor
+from TransactionEntity t
+where t.deletedAt is null
+  and t.book.id = :bookId
+  and t.occurredOn >= :fromDate
+  and t.occurredOn <  :toDate
+""")
   SummaryTotalsView sumTotals(
       @Param("bookId") UUID bookId,
       @Param("fromDate") LocalDate fromDate,

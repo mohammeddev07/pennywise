@@ -9,9 +9,9 @@ import java.util.UUID;
 
 /**
  * {@code occurredOn} is the canonical ledger date (book-local); {@code occurredAt} is the event
- * instant. {@code createdAt} is the record's creation time and never changes; {@code updatedAt}
- * and {@code version} advance only when a write actually changes the row. {@code externalId} is
- * the read-only import identifier.
+ * instant. {@code createdAt} is the record's creation time and never changes; {@code updatedAt} and
+ * {@code version} advance only when a write actually changes the row. {@code externalId} is the
+ * read-only import identifier.
  */
 public record TransactionResponse(
     UUID id,

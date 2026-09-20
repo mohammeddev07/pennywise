@@ -628,7 +628,10 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "413": { description: Request body larger than 64 KiB (REQUEST_TOO_LARGE) }
-        "422": { description: ANALYSIS_TOO_LARGE (categories x buckets > 20000) or AMOUNT_TOTAL_UNSUPPORTED (a total exceeds 2^53-1) }
+        "422":
+          {
+            description: ANALYSIS_TOO_LARGE (categories x buckets > 20000) or AMOUNT_TOTAL_UNSUPPORTED (a total exceeds 2^53-1)
+          }
 
   /v1/books/{bookId}/transactions/export/query:
     parameters:
@@ -887,13 +890,15 @@ components:
           description: |
             Event instant. If provided without occurredOn, occurredOn is derived in the book timezone.
             If omitted, stored as occurredOn at book-local midnight. Persisted as a UTC instant.
-        title: { type: string, maxLength: 120, nullable: true, description: Blank is stored as null. }
+        title:
+          { type: string, maxLength: 120, nullable: true, description: Blank is stored as null. }
         categoryId: { type: string, format: uuid }
         paymentMethod:
           allOf: [{ $ref: "#/components/schemas/PaymentMethod" }]
           nullable: true
           description: Omitted or null is stored as null ("Not specified"); never defaulted to CASH.
-        note: { type: string, maxLength: 280, nullable: true, description: Blank is stored as null. }
+        note:
+          { type: string, maxLength: 280, nullable: true, description: Blank is stored as null. }
 
     TransactionUpdateRequest:
       type: object
@@ -903,8 +908,14 @@ components:
       properties:
         type: { $ref: "#/components/schemas/TransactionType" }
         amountMinor: { type: integer, format: int64, minimum: 1, maximum: 999999999999999 }
-        occurredOn: { type: string, format: date, description: Book-local ledger date. Explicit null rejected. }
-        occurredAt: { type: string, format: date-time, description: Event instant. Explicit null rejected. }
+        occurredOn:
+          {
+            type: string,
+            format: date,
+            description: Book-local ledger date. Explicit null rejected.
+          }
+        occurredAt:
+          { type: string, format: date-time, description: Event instant. Explicit null rejected. }
         title: { type: string, maxLength: 120, nullable: true, description: null or blank clears. }
         categoryId: { type: string, format: uuid }
         paymentMethod:
@@ -942,7 +953,8 @@ components:
         type: { $ref: "#/components/schemas/TransactionType" }
         amountMinor: { type: integer, format: int64 }
         occurredOn: { type: string, format: date, description: Canonical book-local ledger date. }
-        occurredAt: { type: string, format: date-time, nullable: true, description: Event instant (UTC). }
+        occurredAt:
+          { type: string, format: date-time, nullable: true, description: Event instant (UTC). }
         title: { type: string, nullable: true }
         categoryId: { type: string, format: uuid }
         category: { $ref: "#/components/schemas/TransactionCategoryRef" }
@@ -997,12 +1009,43 @@ components:
         Filterable and sortable fields. Not available: book (endpoint scope), deletedAt (always null),
         version (concurrency token). `description` is virtual: title OR note.
       enum:
-        [id, type, amountMinor, occurredOn, occurredAt, categoryId, categoryName, paymentMethod,
-         title, note, description, createdAt, updatedAt, externalId]
+        [
+          id,
+          type,
+          amountMinor,
+          occurredOn,
+          occurredAt,
+          categoryId,
+          categoryName,
+          paymentMethod,
+          title,
+          note,
+          description,
+          createdAt,
+          updatedAt,
+          externalId
+        ]
 
     FilterOperator:
       type: string
-      enum: [EQ, NE, IN, NOT_IN, GT, GTE, LT, LTE, BETWEEN, CONTAINS, NOT_CONTAINS, STARTS_WITH, ENDS_WITH, IS_NULL, IS_NOT_NULL]
+      enum:
+        [
+          EQ,
+          NE,
+          IN,
+          NOT_IN,
+          GT,
+          GTE,
+          LT,
+          LTE,
+          BETWEEN,
+          CONTAINS,
+          NOT_CONTAINS,
+          STARTS_WITH,
+          ENDS_WITH,
+          IS_NULL,
+          IS_NOT_NULL
+        ]
       description: |
         Field/operator matrix (see docs/transaction-query.md):
         UUID and ENUM fields (id, type, categoryId, paymentMethod): EQ, NE, IN, NOT_IN.
@@ -1126,8 +1169,21 @@ components:
     TransactionAnalysisResponse:
       type: object
       required:
-        [bookId, currencyCode, bucket, window, effectiveFilter, queryFingerprint, matchedCount,
-         incomeTotalMinor, expenseTotalMinor, netMinor, categories, buckets, categoryBuckets]
+        [
+          bookId,
+          currencyCode,
+          bucket,
+          window,
+          effectiveFilter,
+          queryFingerprint,
+          matchedCount,
+          incomeTotalMinor,
+          expenseTotalMinor,
+          netMinor,
+          categories,
+          buckets,
+          categoryBuckets
+        ]
       properties:
         bookId: { type: string, format: uuid }
         currencyCode: { type: string }
@@ -1143,7 +1199,12 @@ components:
         matchedCount: { type: integer, format: int64 }
         incomeTotalMinor: { type: integer, format: int64 }
         expenseTotalMinor: { type: integer, format: int64 }
-        netMinor: { type: integer, format: int64, description: income - expense of the matches. Opening balance is not included. }
+        netMinor:
+          {
+            type: integer,
+            format: int64,
+            description: income - expense of the matches. Opening balance is not included.
+          }
         categories:
           type: array
           items:
@@ -1164,12 +1225,17 @@ components:
           description: Every period of the window, zero buckets included.
           items:
             type: object
-            required: [key, start, end, partial, incomeTotalMinor, expenseTotalMinor, netMinor, count]
+            required:
+              [key, start, end, partial, incomeTotalMinor, expenseTotalMinor, netMinor, count]
             properties:
               key: { type: string, description: "YYYY-MM-DD, YYYY-MM or YYYY" }
               start: { type: string, format: date, description: Clipped to the window. }
               end: { type: string, format: date, description: Clipped to the window. }
-              partial: { type: boolean, description: True when the calendar period is only partly inside the window. }
+              partial:
+                {
+                  type: boolean,
+                  description: True when the calendar period is only partly inside the window.
+                }
               incomeTotalMinor: { type: integer, format: int64 }
               expenseTotalMinor: { type: integer, format: int64 }
               netMinor: { type: integer, format: int64 }

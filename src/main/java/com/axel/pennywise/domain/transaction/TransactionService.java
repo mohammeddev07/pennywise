@@ -188,14 +188,13 @@ public class TransactionService {
    * Applies a PATCH. Omitted properties are unchanged; explicit null clears title/note/
    * paymentMethod (required fields reject null at deserialization). The date pair is resolved
    * together: occurredOn alone resets occurredAt to book-local midnight, occurredAt alone derives
-   * occurredOn in the book timezone, both together must agree. createdAt and id are never
-   * touched; updatedAt and version advance only if Hibernate finds a real change at flush, so a
-   * no-op PATCH returns the same timestamps and version.
+   * occurredOn in the book timezone, both together must agree. createdAt and id are never touched;
+   * updatedAt and version advance only if Hibernate finds a real change at flush, so a no-op PATCH
+   * returns the same timestamps and version.
    */
   @Transactional
   public TransactionEntity update(TransactionEntity tx, TransactionUpdateRequest req) {
-    TransactionType resolvedType =
-        req.type() == null ? tx.getType() : required(req.type(), "type");
+    TransactionType resolvedType = req.type() == null ? tx.getType() : required(req.type(), "type");
     CategoryEntity resolvedCategory = tx.getCategory();
     if (req.categoryId() != null) {
       UUID categoryId = required(req.categoryId(), "categoryId");

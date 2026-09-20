@@ -39,7 +39,8 @@ import lombok.experimental.Accessors;
     getterVisibility = JsonAutoDetect.Visibility.NONE,
     isGetterVisibility = JsonAutoDetect.Visibility.NONE,
     setterVisibility = JsonAutoDetect.Visibility.NONE)
-@JsonInclude(JsonInclude.Include.NON_NULL) // serialize: omitted stays omitted, Optional.empty() -> null
+@JsonInclude(
+    JsonInclude.Include.NON_NULL) // serialize: omitted stays omitted, Optional.empty() -> null
 @Getter
 @Accessors(fluent = true)
 @NoArgsConstructor(access = AccessLevel.PRIVATE) // Jackson

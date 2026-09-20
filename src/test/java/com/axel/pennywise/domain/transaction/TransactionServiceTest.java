@@ -116,12 +116,7 @@ class TransactionServiceTest {
             ApiException.class,
             () ->
                 service.create(
-                    book,
-                    category,
-                    TransactionType.EXPENSE,
-                    100L,
-                    LocalDate.of(2026, 1, 1),
-                    "x"));
+                    book, category, TransactionType.EXPENSE, 100L, LocalDate.of(2026, 1, 1), "x"));
 
     assertEquals(HttpStatus.BAD_REQUEST, ex.status());
     verify(repo, never()).save(any());
@@ -467,8 +462,7 @@ class TransactionServiceTest {
     TransactionEntity existing =
         tx(txId, LocalDate.of(2026, 1, 1), OffsetDateTime.now(ZoneOffset.UTC));
     TransactionUpdateRequest req =
-        new TransactionUpdateRequest(
-            Optional.empty(), null, null, null, null, null, null, null);
+        new TransactionUpdateRequest(Optional.empty(), null, null, null, null, null, null, null);
 
     ApiException ex = assertThrows(ApiException.class, () -> service.update(existing, req));
 

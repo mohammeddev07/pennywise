@@ -92,7 +92,8 @@ class QueryRequestParserTest {
   @Test
   void matrixMatchesDocumentedRows() throws Exception {
     java.nio.file.Path doc = java.nio.file.Path.of("docs", "transaction-query.md");
-    String text = java.nio.file.Files.readString(doc);
+    String text =
+        java.nio.file.Files.readString(doc).replaceAll("[ \\t]+", " "); // prettier pads table cells
     for (TxField f : TxField.values()) {
       String ops =
           f.operators().stream()

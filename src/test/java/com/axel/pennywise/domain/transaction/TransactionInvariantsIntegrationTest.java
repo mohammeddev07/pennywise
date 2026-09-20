@@ -45,9 +45,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * P1.1 record-history invariants, exercised through the real HTTP stack against PostgreSQL: the
- * Flyway trigger, Hibernate's updatable=false mapping, optimistic locking, PATCH presence
- * semantics and book ownership. Timestamps are compared as {@link Instant}s read back from the
- * database (microsecond precision), never as strings, so offset spelling cannot mask a change.
+ * Flyway trigger, Hibernate's updatable=false mapping, optimistic locking, PATCH presence semantics
+ * and book ownership. Timestamps are compared as {@link Instant}s read back from the database
+ * (microsecond precision), never as strings, so offset spelling cannot mask a change.
  *
  * <p>Auth is switched on here (unlike the rest of the suite) so two distinct JWT subjects map to
  * two distinct users and cross-tenant access can be asserted.
@@ -281,7 +281,11 @@ class TransactionInvariantsIntegrationTest {
 
     for (String field : new String[] {"createdAt", "updatedAt", "version", "id", "externalId"}) {
       mvc.perform(
-              patchAs(subjectA, txId, 0, "{\"title\":\"x\",\"" + field + "\":\"2000-01-01T00:00:00Z\"}"))
+              patchAs(
+                  subjectA,
+                  txId,
+                  0,
+                  "{\"title\":\"x\",\"" + field + "\":\"2000-01-01T00:00:00Z\"}"))
           .andExpect(status().isBadRequest())
           .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
           .andExpect(jsonPath("$.error.details[0].field").value(field));
@@ -349,13 +353,18 @@ class TransactionInvariantsIntegrationTest {
     UUID txId = UUID.fromString(createDefault().get("id").asText());
     // 2026-02-01T04:30Z is 2026-01-31 22:30 in Chicago -> January in the ledger.
     assertEquals(LocalDate.of(2026, 1, 31), reload(txId).getOccurredOn());
-    assertEquals(1, txRepo.countForRange(bookA, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 1)));
-    assertEquals(0, txRepo.countForRange(bookA, LocalDate.of(2026, 2, 1), LocalDate.of(2026, 3, 1)));
+    assertEquals(
+        1, txRepo.countForRange(bookA, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 1)));
+    assertEquals(
+        0, txRepo.countForRange(bookA, LocalDate.of(2026, 2, 1), LocalDate.of(2026, 3, 1)));
 
     // Both supplied and disagreeing in the book timezone: rejected, row untouched.
     mvc.perform(
             patchAs(
-                subjectA, txId, 0, "{\"occurredOn\":\"2026-02-01\",\"occurredAt\":\"2026-02-01T04:30:00Z\"}"))
+                subjectA,
+                txId,
+                0,
+                "{\"occurredOn\":\"2026-02-01\",\"occurredAt\":\"2026-02-01T04:30:00Z\"}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     assertEquals(LocalDate.of(2026, 1, 31), reload(txId).getOccurredOn());
@@ -364,11 +373,13 @@ class TransactionInvariantsIntegrationTest {
     // Both supplied and agreeing: accepted.
     mvc.perform(
             patchAs(
-                subjectA, txId, 0, "{\"occurredOn\":\"2026-01-31\",\"occurredAt\":\"2026-02-01T05:00:00Z\"}"))
+                subjectA,
+                txId,
+                0,
+                "{\"occurredOn\":\"2026-01-31\",\"occurredAt\":\"2026-02-01T05:00:00Z\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.occurredOn").value("2026-01-31"));
-    assertEquals(
-        Instant.parse("2026-02-01T05:00:00Z"), reload(txId).getOccurredAt().toInstant());
+    assertEquals(Instant.parse("2026-02-01T05:00:00Z"), reload(txId).getOccurredAt().toInstant());
 
     // occurredOn alone moves the ledger day; occurredAt is reset to book-local midnight.
     mvc.perform(patchAs(subjectA, txId, 1, "{\"occurredOn\":\"2026-02-01\"}"))
@@ -377,15 +388,16 @@ class TransactionInvariantsIntegrationTest {
     TransactionEntity moved = reload(txId);
     assertEquals(LocalDate.of(2026, 2, 1), moved.getOccurredOn());
     assertEquals(Instant.parse("2026-02-01T06:00:00Z"), moved.getOccurredAt().toInstant());
-    assertEquals(0, txRepo.countForRange(bookA, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 1)));
-    assertEquals(1, txRepo.countForRange(bookA, LocalDate.of(2026, 2, 1), LocalDate.of(2026, 3, 1)));
+    assertEquals(
+        0, txRepo.countForRange(bookA, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 1)));
+    assertEquals(
+        1, txRepo.countForRange(bookA, LocalDate.of(2026, 2, 1), LocalDate.of(2026, 3, 1)));
 
     // occurredAt alone derives the ledger day in the book timezone (offset spelling irrelevant).
     mvc.perform(patchAs(subjectA, txId, 2, "{\"occurredAt\":\"2026-03-01T01:30:00+02:00\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.occurredOn").value("2026-02-28"));
-    assertEquals(
-        Instant.parse("2026-02-28T23:30:00Z"), reload(txId).getOccurredAt().toInstant());
+    assertEquals(Instant.parse("2026-02-28T23:30:00Z"), reload(txId).getOccurredAt().toInstant());
     assertNotEquals(0L, reload(txId).getVersion());
   }
 }
