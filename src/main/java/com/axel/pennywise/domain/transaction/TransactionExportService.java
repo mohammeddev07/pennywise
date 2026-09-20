@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.List;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
@@ -38,7 +37,7 @@ public class TransactionExportService {
    *     closed, so any lazy association access throws LazyInitializationException.
    */
   public void writeXlsx(
-      List<TransactionEntity> transactions, String currencyCode, OutputStream out) {
+      Iterable<TransactionEntity> transactions, String currencyCode, OutputStream out) {
     try (SXSSFWorkbook workbook = new SXSSFWorkbook(100)) {
       Sheet sheet = workbook.createSheet("Transactions");
 

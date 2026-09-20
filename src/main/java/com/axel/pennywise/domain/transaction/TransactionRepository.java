@@ -158,6 +158,16 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
 
   @Query(
       """
+      select coalesce(sum(t.amountMinor), 0)
+      from TransactionEntity t
+      where t.deletedAt is null
+        and t.book.id = :bookId
+        and t.type = :type
+      """)
+  long sumAmountByType(@Param("bookId") UUID bookId, @Param("type") TransactionType type);
+
+  @Query(
+      """
       select
         coalesce(sum(case when t.type = TransactionType.INCOME then t.amountMinor else 0 end), 0) as incomeTotalMinor,
         coalesce(sum(case when t.type = TransactionType.EXPENSE then t.amountMinor else 0 end), 0) as expenseTotalMinor
@@ -183,6 +193,8 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
       @Param("fromDate") LocalDate fromDate,
       @Param("toDate") LocalDate toDate);
 
+  // Both bounds are required: the former "(:p is null or ...)" guards make PostgreSQL fail with
+  // "could not determine data type of parameter" and broke GET /summary/range.
   @Query(
       """
       select
@@ -191,8 +203,8 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
       from TransactionEntity t
       where t.deletedAt is null
         and t.book.id = :bookId
-        and (:fromDate is null or t.occurredOn >= :fromDate)
-        and (:toDate   is null or t.occurredOn <  :toDate)
+        and t.occurredOn >= :fromDate
+        and t.occurredOn <  :toDate
       """)
   SummaryTotalsView sumTotals(
       @Param("bookId") UUID bookId,

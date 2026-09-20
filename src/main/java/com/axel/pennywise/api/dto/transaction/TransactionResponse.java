@@ -1,6 +1,7 @@
 package com.axel.pennywise.api.dto.transaction;
 
 import com.axel.pennywise.domain.transaction.PaymentMethod;
+import com.axel.pennywise.domain.transaction.TransactionEntity;
 import com.axel.pennywise.domain.transaction.TransactionType;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -28,4 +29,30 @@ public record TransactionResponse(
     OffsetDateTime createdAt,
     OffsetDateTime updatedAt,
     OffsetDateTime deletedAt,
-    long version) {}
+    long version) {
+
+  /**
+   * Maps a row whose category is already loaded. {@code bookId} is passed in because the book
+   * association is a lazy proxy that is never fetched by the query endpoints.
+   */
+  public static TransactionResponse from(TransactionEntity tx, UUID bookId) {
+    return new TransactionResponse(
+        tx.getId(),
+        bookId,
+        tx.getType(),
+        tx.getAmountMinor(),
+        tx.getOccurredOn(),
+        tx.getOccurredAt(),
+        tx.getTitle(),
+        tx.getCategory().getId(),
+        new TransactionCategoryRef(
+            tx.getCategory().getId(), tx.getCategory().getName(), tx.getCategory().getType()),
+        tx.getPaymentMethod(),
+        tx.getNote(),
+        tx.getExternalId(),
+        tx.getCreatedAt(),
+        tx.getUpdatedAt(),
+        tx.getDeletedAt(),
+        tx.getVersion() == null ? 0 : tx.getVersion());
+  }
+}
