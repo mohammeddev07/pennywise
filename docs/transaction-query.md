@@ -65,7 +65,8 @@ Enum values: `type` = `INCOME | EXPENSE`; `paymentMethod` = `CASH | CARD | BANK_
 
 - **Text matching is literal and case-insensitive** (`lower(col)` against `lower(value)`). `%`, `_` and `\` in a value are ordinary characters, never wildcards. `EQ` is a whole-value match.
 - **Nulls.** A comparison against a non-null value never matches a null column, **including `NE`, `NOT_IN` and `NOT_CONTAINS`** (`paymentMethod NE "CARD"` does not return rows without a payment method). To include them, OR with `IS_NULL`: `OR( paymentMethod NE CARD , paymentMethod IS_NULL )`.
-- **`description`** is virtual: `title` OR `note`. Positive operators (`EQ`, `CONTAINS`, `STARTS_WITH`, `ENDS_WITH`) match when either field matches. Negative operators (`NE`, `NOT_CONTAINS`) are the _logical negation_ over the values coalesced to `''`, so a row with no title and no note **does** match `description NOT_CONTAINS "x"` (unlike `title NOT_CONTAINS "x"`, which skips null titles).
+- **`description`** is virtual: `title` OR `note`. Positive operators (`EQ`, `CONTAINS`, `STARTS_WITH`, `ENDS_WITH`) match when either field matches.
+  Negative operators (`NE`, `NOT_CONTAINS`) are the _logical negation_ over the values coalesced to `''`, so a row with no title and no note **does** match `description NOT_CONTAINS "x"` (unlike `title NOT_CONTAINS "x"`, which skips null titles).
 - `categoryName` is the category's current name (joined once, in the same statement).
 
 ## Sorting
@@ -157,7 +158,8 @@ Content-Type: application/json
 
 ### Pagination contract
 
-Paging is **bounded offset pagination for every sort**, `page.offset` ≤ **100 000**. A larger offset is `400 PAGE_OFFSET_LIMIT_EXCEEDED` ("narrow the filter or change the sort") — the server never silently truncates. `totalCount` and the items of _one_ response come from one database snapshot, but **consecutive pages are independent snapshots, not a cross-request snapshot**. Therefore clients must reset to `offset: 0`:
+Paging is **bounded offset pagination for every sort**, `page.offset` ≤ **100 000**. A larger offset is `400 PAGE_OFFSET_LIMIT_EXCEEDED` ("narrow the filter or change the sort") — the server never silently truncates.
+`totalCount` and the items of _one_ response come from one database snapshot, but **consecutive pages are independent snapshots, not a cross-request snapshot**. Therefore clients must reset to `offset: 0`:
 
 - after any create / edit / delete / import that they (or the user) performed,
 - on pull-to-refresh or when the screen regains focus,
@@ -184,7 +186,8 @@ POST /api/v1/books/{bookId}/transactions/analyze
 ```
 
 - `bucket`: `DAY | MONTH | YEAR`. `window` is an explicit **inclusive ledger-date window** (`occurredOn`), required, `startDate ≤ endDate`, at most 5 years (same guard as `GET /summary/range`). The caller resolves defaults; the effective window is echoed back.
-- The final predicate is `filter AND occurredOn BETWEEN [startDate, endDate]`. The response returns it as `effectiveFilter` (if `filter` is an `AND` group the window condition is appended to it, otherwise `filter` and the window are wrapped in a new `AND`). To make **search** return the same rows, send `effectiveFilter` (or the same window condition) as its filter. The window counts towards the 30-condition / depth-3 limits, so analyze accepts only what search would accept.
+- The final predicate is `filter AND occurredOn BETWEEN [startDate, endDate]`. The response returns it as `effectiveFilter` (if `filter` is an `AND` group the window condition is appended to it, otherwise `filter` and the window are wrapped in a new `AND`).
+  To make **search** return the same rows, send `effectiveFilter` (or the same window condition) as its filter. The window counts towards the 30-condition / depth-3 limits, so analyze accepts only what search would accept.
 - Every figure is computed by PostgreSQL over **all** matching rows (one `GROUP BY day, category, type` plus one "largest expense" query) inside a single repeatable-read snapshot.
 - Not cached: arbitrary filters are high-cardinality. The monthly/balance/budget caches and their post-commit eviction are untouched.
 
@@ -335,7 +338,9 @@ EXPLAIN (ANALYZE) on synthetic data — one book with 200 000 active rows plus 3
 | analyze `GROUP BY day, category, type`, 5-year window      | book scan + hash aggregate                                    | 30 ms  |
 | sort `title ASC`                                           | book scan + top-N sort                                        | 53 ms  |
 
-The second row is why sorts omit `NULLS LAST` on NOT NULL columns. Everything else scans only the requested book (the `book_id` indices already isolate it), so no new index was justified: the slowest plans are single-digit-to-tens of milliseconds for a book 10-100× larger than a typical one, and a trigram index for substring search would need the `pg_trgm` extension. Revisit if substring search on very large books becomes hot.
+The second row is why sorts omit `NULLS LAST` on NOT NULL columns.
+Everything else scans only the requested book (the `book_id` indices already isolate it), so no new index was justified: the slowest plans are single-digit-to-tens of milliseconds for a book 10-100× larger than a typical one, and a trigram index for substring search would need the `pg_trgm` extension.
+Revisit if substring search on very large books becomes hot.
 
 ## TypeScript types
 

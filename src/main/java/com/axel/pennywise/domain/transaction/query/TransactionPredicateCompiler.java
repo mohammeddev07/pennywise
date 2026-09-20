@@ -104,6 +104,8 @@ public class TransactionPredicateCompiler {
 
     Expression<?> col = column(tx, category, c.field());
     Object v = c.value();
+    // Non-null NE/NOT_CONTAINS rely on SQL three-valued logic: NULL <> x is not true, so rows
+    // with a null value are excluded, as documented.
     return switch (c.operator()) {
       case IS_NULL -> cb.isNull(col);
       case IS_NOT_NULL -> cb.isNotNull(col);
@@ -118,8 +120,6 @@ public class TransactionPredicateCompiler {
       case GTE -> cb.greaterThanOrEqualTo((Expression<Comparable>) col, (Comparable) v);
       case LT -> cb.lessThan((Expression<Comparable>) col, (Comparable) v);
       case LTE -> cb.lessThanOrEqualTo((Expression<Comparable>) col, (Comparable) v);
-      // Non-null NE/NOT_CONTAINS rely on SQL three-valued logic: NULL <> x is not true, so
-      // rows with a null value are excluded, as documented.
       case EQ ->
           c.field().kind() == TxField.Kind.TEXT
               ? text(cb, (Expression<String>) col, c)
