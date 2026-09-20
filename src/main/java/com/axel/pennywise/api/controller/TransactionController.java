@@ -203,14 +203,7 @@ public class TransactionController {
       @PathVariable UUID txId,
       @RequestHeader("If-Match") String ifMatch,
       @Valid @RequestBody TransactionUpdateRequest req) {
-    if (req.type() == null
-        && req.amountMinor() == null
-        && req.occurredOn() == null
-        && req.categoryId() == null
-        && req.note() == null
-        && req.title() == null
-        && req.paymentMethod() == null
-        && req.occurredAt() == null) {
+    if (req.isEmpty()) {
       throw new ApiException(
           HttpStatus.BAD_REQUEST,
           "VALIDATION_ERROR",
@@ -363,6 +356,7 @@ public class TransactionController {
             tx.getCategory().getId(), tx.getCategory().getName(), tx.getCategory().getType()),
         tx.getPaymentMethod(),
         tx.getNote(),
+        tx.getExternalId(),
         tx.getCreatedAt(),
         tx.getUpdatedAt(),
         tx.getDeletedAt(),

@@ -1,6 +1,8 @@
 package com.axel.pennywise.exception;
 
 import com.axel.pennywise.util.RequestIdFilter;
+import com.fasterxml.jackson.databind.exc.InvalidNullException;
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.time.format.DateTimeParseException;
@@ -71,6 +73,27 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(HttpMessageNotReadableException.class)
   public ResponseEntity<ErrorResponse> handleBadJson(HttpMessageNotReadableException ex) {
+    Throwable cause = ex.getCause();
+    if (cause instanceof UnrecognizedPropertyException upe) {
+      String field = upe.getPropertyName();
+      log.warn("Rejected unknown request field: field={}", field);
+      return ResponseEntity.badRequest()
+          .body(
+              error(
+                  "VALIDATION_ERROR",
+                  "Unknown field: " + field,
+                  List.of(Map.of("field", field, "message", "Field is not writable"))));
+    }
+    if (cause instanceof InvalidNullException ine) {
+      String field = ine.getPropertyName().getSimpleName();
+      log.warn("Rejected explicit null for required field: field={}", field);
+      return ResponseEntity.badRequest()
+          .body(
+              error(
+                  "VALIDATION_ERROR",
+                  "Field must not be null: " + field,
+                  List.of(Map.of("field", field, "message", "must not be null"))));
+    }
     log.warn("Malformed JSON request: message={}", ex.getMessage());
     return ResponseEntity.badRequest().body(error("BAD_REQUEST", "Malformed JSON", List.of()));
   }

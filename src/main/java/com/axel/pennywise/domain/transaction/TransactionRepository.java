@@ -126,7 +126,7 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
         and (:type     is null or t.type = :type)
         and (:categoryId is null or c.id = :categoryId)
         and (
-             :searchLike is null
+       :searchLike is null
           or (t.title is not null and lower(t.title) like :searchLike)
           or (t.note is not null and lower(t.note) like :searchLike)
           or lower(c.name) like :searchLike
@@ -135,7 +135,7 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
           or (:amountSearch is not null and t.amountMinor = :amountSearch)
         )
         and (
-             t.occurredOn < :cursorOccurredOn
+       t.occurredOn < :cursorOccurredOn
           or (t.occurredOn = :cursorOccurredOn and t.createdAt < :cursorCreatedAt)
           or (t.occurredOn = :cursorOccurredOn and t.createdAt = :cursorCreatedAt and t.id < :cursorId)
         )
@@ -155,6 +155,16 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
       @Param("cursorCreatedAt") OffsetDateTime cursorCreatedAt,
       @Param("cursorId") UUID cursorId,
       Pageable pageable);
+
+  @Query(
+      """
+      select coalesce(sum(t.amountMinor), 0)
+      from TransactionEntity t
+      where t.deletedAt is null
+        and t.book.id = :bookId
+        and t.type = :type
+      """)
+  long sumAmountByType(@Param("bookId") UUID bookId, @Param("type") TransactionType type);
 
   @Query(
       """
@@ -183,6 +193,8 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
       @Param("fromDate") LocalDate fromDate,
       @Param("toDate") LocalDate toDate);
 
+  // Both bounds are required: the former "(:p is null or ...)" guards make PostgreSQL fail with
+  // "could not determine data type of parameter" and broke GET /summary/range.
   @Query(
       """
       select
@@ -191,8 +203,8 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
       from TransactionEntity t
       where t.deletedAt is null
         and t.book.id = :bookId
-        and (:fromDate is null or t.occurredOn >= :fromDate)
-        and (:toDate   is null or t.occurredOn <  :toDate)
+        and t.occurredOn >= :fromDate
+        and t.occurredOn <  :toDate
       """)
   SummaryTotalsView sumTotals(
       @Param("bookId") UUID bookId,

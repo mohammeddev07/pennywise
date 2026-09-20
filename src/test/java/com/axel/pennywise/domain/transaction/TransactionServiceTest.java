@@ -11,6 +11,7 @@ import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryRepository;
 import com.axel.pennywise.domain.category.CategoryType;
+import com.axel.pennywise.domain.common.MoneyLimits;
 import com.axel.pennywise.domain.summary.CacheEvictionService;
 import com.axel.pennywise.exception.ApiException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -101,7 +102,47 @@ class TransactionServiceTest {
                         && Long.valueOf(3000L).equals(t.getAmountMinor())
                         && occurredOn.equals(t.getOccurredOn())
                         && "Lunch".equals(t.getNote())));
+    verify(repo).sumAmountByType(book.getId(), TransactionType.EXPENSE);
     verifyNoMoreInteractions(repo, categoryRepo);
+  }
+
+  @Test
+  void create_rejectsAmountThatPushesBookTotalPastAggregateLimit() {
+    when(repo.sumAmountByType(book.getId(), TransactionType.EXPENSE))
+        .thenReturn(MoneyLimits.MAX_AGGREGATE_AMOUNT_MINOR - 99L);
+
+    ApiException ex =
+        assertThrows(
+            ApiException.class,
+            () ->
+                service.create(
+                    book, category, TransactionType.EXPENSE, 100L, LocalDate.of(2026, 1, 1), "x"));
+
+    assertEquals(HttpStatus.BAD_REQUEST, ex.status());
+    verify(repo, never()).save(any());
+  }
+
+  @Test
+  void update_aggregateCheckExcludesTheRowsOwnCurrentAmount() {
+    TransactionEntity existing =
+        tx(txId, LocalDate.of(2026, 1, 1), OffsetDateTime.now(ZoneOffset.UTC));
+    existing.setAmountMinor(500L);
+    // Stored total already holds this row's 500; raising it to 600 lands exactly on the limit.
+    when(repo.sumAmountByType(existing.getBook().getId(), existing.getType()))
+        .thenReturn(MoneyLimits.MAX_AGGREGATE_AMOUNT_MINOR - 100L);
+    when(repo.save(any(TransactionEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    service.update(existing, new TransactionUpdateRequest(null, 600L, null, null, null));
+
+    assertEquals(600L, existing.getAmountMinor());
+
+    TransactionEntity another =
+        tx(txId, LocalDate.of(2026, 1, 1), OffsetDateTime.now(ZoneOffset.UTC));
+    another.setAmountMinor(500L);
+    assertThrows(
+        ApiException.class,
+        () -> service.update(another, new TransactionUpdateRequest(null, 601L, null, null, null)));
+    assertEquals(500L, another.getAmountMinor());
   }
 
   @Test
@@ -159,6 +200,7 @@ class TransactionServiceTest {
 
     assertEquals(LocalDate.of(2026, 1, 31), saved.getOccurredOn());
     assertEquals(occurredAt, saved.getOccurredAt());
+    verify(repo).sumAmountByType(book.getId(), TransactionType.EXPENSE);
     verify(repo).save(saved);
     verifyNoMoreInteractions(repo, categoryRepo);
   }
@@ -211,6 +253,7 @@ class TransactionServiceTest {
     assertEquals(LocalDate.of(2026, 1, 15), existing.getOccurredOn());
     assertEquals("Updated note", existing.getNote());
 
+    verify(repo).sumAmountByType(existing.getBook().getId(), existing.getType());
     verify(repo).save(existing);
     verifyNoMoreInteractions(repo, categoryRepo);
   }
@@ -328,6 +371,129 @@ class TransactionServiceTest {
     assertEquals(occurredAt, updated.getOccurredAt());
     verify(repo).save(existing);
     verifyNoMoreInteractions(repo, categoryRepo);
+  }
+
+  @Test
+  void update_rejectsOccurredOnThatDisagreesWithOccurredAtInBookTimezone() {
+    book.setTimezone("America/Chicago");
+    TransactionEntity existing =
+        tx(txId, LocalDate.of(2026, 1, 1), OffsetDateTime.now(ZoneOffset.UTC));
+    OffsetDateTime occurredAt = OffsetDateTime.parse("2026-02-01T04:30:00Z"); // Jan 31 in Chicago
+    TransactionUpdateRequest req =
+        new TransactionUpdateRequest(
+            null, null, LocalDate.of(2026, 2, 1), null, null, null, null, occurredAt);
+
+    ApiException ex = assertThrows(ApiException.class, () -> service.update(existing, req));
+
+    assertEquals(HttpStatus.BAD_REQUEST, ex.status());
+    assertEquals(LocalDate.of(2026, 1, 1), existing.getOccurredOn());
+    verifyNoInteractions(repo);
+  }
+
+  @Test
+  void update_acceptsAgreeingOccurredOnAndOccurredAt_andStoresUtcInstant() {
+    book.setTimezone("America/Chicago");
+    TransactionEntity existing =
+        tx(txId, LocalDate.of(2026, 1, 1), OffsetDateTime.now(ZoneOffset.UTC));
+    OffsetDateTime occurredAt = OffsetDateTime.parse("2026-01-31T22:30:00-06:00");
+    TransactionUpdateRequest req =
+        new TransactionUpdateRequest(
+            null, null, LocalDate.of(2026, 1, 31), null, null, null, null, occurredAt);
+    when(repo.save(existing)).thenReturn(existing);
+
+    service.update(existing, req);
+
+    assertEquals(LocalDate.of(2026, 1, 31), existing.getOccurredOn());
+    assertEquals(occurredAt.toInstant(), existing.getOccurredAt().toInstant());
+    assertEquals(ZoneOffset.UTC, existing.getOccurredAt().getOffset());
+  }
+
+  @Test
+  void update_explicitNullClearsNullableFields_omittedLeavesThem() {
+    TransactionEntity existing =
+        tx(txId, LocalDate.of(2026, 1, 1), OffsetDateTime.now(ZoneOffset.UTC));
+    existing.setTitle("Coffee");
+    existing.setNote("with milk");
+    existing.setPaymentMethod(PaymentMethod.CARD);
+    when(repo.save(existing)).thenReturn(existing);
+
+    service.update(
+        existing,
+        new TransactionUpdateRequest(
+            null, null, null, null, null, Optional.empty(), Optional.empty(), null));
+
+    assertNull(existing.getTitle());
+    assertNull(existing.getPaymentMethod());
+    assertEquals("with milk", existing.getNote());
+  }
+
+  @Test
+  void update_blankStringsClearTitleAndNote() {
+    TransactionEntity existing =
+        tx(txId, LocalDate.of(2026, 1, 1), OffsetDateTime.now(ZoneOffset.UTC));
+    existing.setTitle("Coffee");
+    when(repo.save(existing)).thenReturn(existing);
+
+    service.update(
+        existing,
+        new TransactionUpdateRequest(
+            null, null, null, null, Optional.of("  "), Optional.of(""), null, null));
+
+    assertNull(existing.getTitle());
+    assertNull(existing.getNote());
+  }
+
+  @Test
+  void update_rejectsAmountAboveSupportedMaximum() {
+    TransactionEntity existing =
+        tx(txId, LocalDate.of(2026, 1, 1), OffsetDateTime.now(ZoneOffset.UTC));
+    TransactionUpdateRequest req =
+        new TransactionUpdateRequest(
+            null, MoneyLimits.MAX_TRANSACTION_AMOUNT_MINOR + 1, null, null, null);
+
+    ApiException ex = assertThrows(ApiException.class, () -> service.update(existing, req));
+
+    assertEquals(HttpStatus.BAD_REQUEST, ex.status());
+    verifyNoInteractions(repo);
+  }
+
+  @Test
+  void update_rejectsExplicitNullOnRequiredField() {
+    TransactionEntity existing =
+        tx(txId, LocalDate.of(2026, 1, 1), OffsetDateTime.now(ZoneOffset.UTC));
+    TransactionUpdateRequest req =
+        new TransactionUpdateRequest(Optional.empty(), null, null, null, null, null, null, null);
+
+    ApiException ex = assertThrows(ApiException.class, () -> service.update(existing, req));
+
+    assertEquals(HttpStatus.BAD_REQUEST, ex.status());
+    assertEquals("Field must not be null: type", ex.getMessage());
+    assertEquals("type", ex.details().get(0).get("field"));
+    verifyNoInteractions(repo, categoryRepo);
+  }
+
+  @Test
+  void create_rejectsOccurredOnThatDisagreesWithOccurredAt() {
+    book.setTimezone("America/Chicago");
+    OffsetDateTime occurredAt = OffsetDateTime.parse("2026-02-01T04:30:00Z");
+
+    ApiException ex =
+        assertThrows(
+            ApiException.class,
+            () ->
+                service.create(
+                    book,
+                    category,
+                    TransactionType.EXPENSE,
+                    3000L,
+                    LocalDate.of(2026, 2, 1),
+                    null,
+                    null,
+                    null,
+                    occurredAt));
+
+    assertEquals(HttpStatus.BAD_REQUEST, ex.status());
+    verifyNoInteractions(repo);
   }
 
   // -----------------------

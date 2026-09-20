@@ -386,6 +386,21 @@ paths:
     patch:
       tags: [Transactions]
       summary: Update transaction (optimistic concurrency)
+      description: |
+        Partial update. Presence semantics:
+        - omitted property: unchanged
+        - `title`, `note`, `paymentMethod`: explicit `null` clears the value; a blank string also clears `title`/`note`
+        - `type`, `amountMinor`, `occurredOn`, `occurredAt`, `categoryId`: explicit `null` is rejected (400 VALIDATION_ERROR)
+        - `id`, `bookId`, `createdAt`, `updatedAt`, `deletedAt`, `version`, `externalId` or any unknown property: rejected (400 VALIDATION_ERROR, `details[0].field` names it); the record is never altered
+        - an empty object is rejected
+
+        Dates: `occurredOn` alone moves the ledger day and resets `occurredAt` to book-local midnight;
+        `occurredAt` alone derives `occurredOn` in the book timezone; both together must agree.
+
+        The response body and `ETag` carry the committed values. `createdAt` and `id` never change.
+        `updatedAt` and `version` advance only when the row actually changed: a PATCH that repeats the
+        stored values is a no-op and returns the unchanged `version`/`updatedAt` (the `If-Match` you sent
+        stays valid).
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -532,6 +547,118 @@ paths:
               schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/books/{bookId}/transactions/search:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      tags: [Transactions]
+      summary: Search transactions with a filter expression, sorting and offset paging
+      description: |
+        Same rows as the GET list for equivalent filters, but with nested AND/OR groups and typed
+        conditions. Executed predicate: `ownedBook AND activeTransaction AND (filter)`.
+
+        **Pagination.** Bounded offset paging for every sort (`page.offset` <= 100000, else
+        `PAGE_OFFSET_LIMIT_EXCEEDED`; the server never truncates silently). `totalCount` and `items`
+        of one response share a snapshot, but consecutive pages are NOT a cross-request snapshot:
+        reset to offset 0 after any mutation, on refresh, and when `queryFingerprint` changes.
+        The GET cursor contract is unchanged.
+
+        See docs/transaction-query.md for the field/operator matrix, null and text semantics.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransactionSearchRequest" }
+            example:
+              filter:
+                kind: group
+                op: AND
+                children:
+                  - { kind: condition, field: type, operator: EQ, value: EXPENSE }
+                  - kind: group
+                    op: OR
+                    children:
+                      - { kind: condition, field: description, operator: CONTAINS, value: coffee }
+                      - { kind: condition, field: amountMinor, operator: GTE, value: 10000 }
+              sort:
+                - { field: amountMinor, direction: DESC }
+              page: { offset: 0, limit: 50 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransactionSearchResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { description: Request body larger than 64 KiB (REQUEST_TOO_LARGE) }
+
+  /v1/books/{bookId}/transactions/analyze:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      tags: [Transactions]
+      summary: Aggregate every transaction matching a filter inside an explicit ledger-date window
+      description: |
+        Final predicate: `filter AND occurredOn BETWEEN window` (returned as `effectiveFilter`).
+        Totals, category totals, bucket totals, category-by-bucket cells and the largest expense are
+        computed in PostgreSQL over all matching rows in one repeatable-read snapshot. Not cached.
+
+        Amounts are positive minor units by INCOME/EXPENSE; `netMinor = income - expense`; the
+        opening balance is not included. `monthlyBudgets` is present only when the window is exactly
+        one full calendar month and holds full-month targets, not filtered allowances.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransactionAnalyzeRequest" }
+            example:
+              filter: { kind: group, op: AND, children: [] }
+              bucket: MONTH
+              window: { startDate: "2025-01-01", endDate: "2025-12-31" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransactionAnalysisResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { description: Request body larger than 64 KiB (REQUEST_TOO_LARGE) }
+        "422":
+          {
+            description: ANALYSIS_TOO_LARGE (categories x buckets > 20000) or AMOUNT_TOTAL_UNSUPPORTED (a total exceeds 2^53-1)
+          }
+
+  /v1/books/{bookId}/transactions/export/query:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      tags: [Transactions]
+      summary: Export every transaction matching a filter to .xlsx (synchronous)
+      description: |
+        Same `filter` and `sort` as search; exports ALL matching rows (not the visible page) in stable
+        order using the existing .xlsx layout. Limits: 50000 rows and 20 MB, otherwise
+        `422 EXPORT_TOO_LARGE` with advice to narrow the filter. Cells are literal values.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransactionQuery" }
+      responses:
+        "200":
+          description: OK - .xlsx file
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { description: Request body larger than 64 KiB (REQUEST_TOO_LARGE) }
+        "422": { description: EXPORT_TOO_LARGE }
 
 components:
   securitySchemes:
@@ -738,34 +865,64 @@ components:
 
     TransactionCreateRequest:
       type: object
+      description: |
+        Audit fields (`id`, `createdAt`, `updatedAt`, `version`, `externalId`, ...) are server-controlled;
+        any unknown property is rejected with 400 VALIDATION_ERROR. `externalId` is only assigned by import.
       required: [type, amountMinor, categoryId]
+      additionalProperties: false
       properties:
         type: { $ref: "#/components/schemas/TransactionType" }
-        amountMinor: { type: integer, format: int64, minimum: 1 }
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 999999999999999
+          description: Integer minor units of the book currency (cents for USD, whole yen for JPY). See MoneyLimits.
         occurredOn:
           type: string
           format: date
-          description: Backwards-compatible date field. Required when occurredAt is omitted.
+          description: |
+            Canonical ledger date in the book timezone; lists, summaries and budgets group by this.
+            Required when occurredAt is omitted. When both are sent they must name the same book-local day.
         occurredAt:
           type: string
           format: date-time
-          description: Transaction timestamp. If provided without occurredOn, the book timezone is used to derive occurredOn.
-        title: { type: string, maxLength: 120, nullable: true }
+          description: |
+            Event instant. If provided without occurredOn, occurredOn is derived in the book timezone.
+            If omitted, stored as occurredOn at book-local midnight. Persisted as a UTC instant.
+        title:
+          { type: string, maxLength: 120, nullable: true, description: Blank is stored as null. }
         categoryId: { type: string, format: uuid }
-        paymentMethod: { $ref: "#/components/schemas/PaymentMethod" }
-        note: { type: string, maxLength: 280, nullable: true }
+        paymentMethod:
+          allOf: [{ $ref: "#/components/schemas/PaymentMethod" }]
+          nullable: true
+          description: Omitted or null is stored as null ("Not specified"); never defaulted to CASH.
+        note:
+          { type: string, maxLength: 280, nullable: true, description: Blank is stored as null. }
 
     TransactionUpdateRequest:
       type: object
+      description: See PATCH /v1/books/{bookId}/transactions/{txId} for presence semantics (omitted = unchanged, null clears nullable fields only).
+      additionalProperties: false
+      minProperties: 1
       properties:
         type: { $ref: "#/components/schemas/TransactionType" }
-        amountMinor: { type: integer, format: int64, minimum: 1 }
-        occurredOn: { type: string, format: date }
-        occurredAt: { type: string, format: date-time }
-        title: { type: string, maxLength: 120, nullable: true }
+        amountMinor: { type: integer, format: int64, minimum: 1, maximum: 999999999999999 }
+        occurredOn:
+          {
+            type: string,
+            format: date,
+            description: Book-local ledger date. Explicit null rejected.
+          }
+        occurredAt:
+          { type: string, format: date-time, description: Event instant. Explicit null rejected. }
+        title: { type: string, maxLength: 120, nullable: true, description: null or blank clears. }
         categoryId: { type: string, format: uuid }
-        paymentMethod: { $ref: "#/components/schemas/PaymentMethod" }
-        note: { type: string, maxLength: 280, nullable: true }
+        paymentMethod:
+          allOf: [{ $ref: "#/components/schemas/PaymentMethod" }]
+          nullable: true
+          description: null clears ("Not specified").
+        note: { type: string, maxLength: 280, nullable: true, description: null or blank clears. }
 
     TransactionCategoryRef:
       type: object
@@ -795,17 +952,38 @@ components:
         bookId: { type: string, format: uuid }
         type: { $ref: "#/components/schemas/TransactionType" }
         amountMinor: { type: integer, format: int64 }
-        occurredOn: { type: string, format: date }
-        occurredAt: { type: string, format: date-time, nullable: true }
+        occurredOn: { type: string, format: date, description: Canonical book-local ledger date. }
+        occurredAt:
+          { type: string, format: date-time, nullable: true, description: Event instant (UTC). }
         title: { type: string, nullable: true }
         categoryId: { type: string, format: uuid }
         category: { $ref: "#/components/schemas/TransactionCategoryRef" }
-        paymentMethod: { $ref: "#/components/schemas/PaymentMethod" }
+        paymentMethod:
+          allOf: [{ $ref: "#/components/schemas/PaymentMethod" }]
+          nullable: true
+          description: null means not specified; clients must display it as such, never as CASH.
         note: { type: string, nullable: true }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-        deletedAt: { type: string, format: date-time, nullable: true }
-        version: { type: integer, format: int64 }
+        externalId:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Import identifier used for duplicate detection. Read-only; never accepted in requests.
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Record creation instant. Immutable (DB trigger); distinct from occurredAt/occurredOn.
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Advances only when a write actually changed the row.
+        deletedAt: { type: string, format: date-time, nullable: true, readOnly: true }
+        version:
+          type: integer
+          format: int64
+          readOnly: true
+          description: Optimistic-concurrency token, echoed as the ETag. Unchanged by no-op writes.
 
     CursorPage_TransactionResponse:
       type: object
@@ -824,6 +1002,274 @@ components:
       properties:
         page:
           $ref: "#/components/schemas/CursorPage_TransactionResponse"
+
+    QueryField:
+      type: string
+      description: |
+        Filterable and sortable fields. Not available: book (endpoint scope), deletedAt (always null),
+        version (concurrency token). `description` is virtual: title OR note.
+      enum:
+        [
+          id,
+          type,
+          amountMinor,
+          occurredOn,
+          occurredAt,
+          categoryId,
+          categoryName,
+          paymentMethod,
+          title,
+          note,
+          description,
+          createdAt,
+          updatedAt,
+          externalId
+        ]
+
+    FilterOperator:
+      type: string
+      enum:
+        [
+          EQ,
+          NE,
+          IN,
+          NOT_IN,
+          GT,
+          GTE,
+          LT,
+          LTE,
+          BETWEEN,
+          CONTAINS,
+          NOT_CONTAINS,
+          STARTS_WITH,
+          ENDS_WITH,
+          IS_NULL,
+          IS_NOT_NULL
+        ]
+      description: |
+        Field/operator matrix (see docs/transaction-query.md):
+        UUID and ENUM fields (id, type, categoryId, paymentMethod): EQ, NE, IN, NOT_IN.
+        NUMBER/DATE/TIMESTAMP fields (amountMinor, occurredOn, occurredAt, createdAt, updatedAt):
+        EQ, NE, GT, GTE, LT, LTE, BETWEEN (inclusive).
+        TEXT fields (categoryName, title, note, description, externalId): EQ, NE, CONTAINS,
+        NOT_CONTAINS, STARTS_WITH, ENDS_WITH (literal, case-insensitive; % _ \ are ordinary characters).
+        IS_NULL/IS_NOT_NULL only on nullable fields: occurredAt, paymentMethod, title, note, externalId.
+        Non-null comparisons (including NE, NOT_IN, NOT_CONTAINS) exclude null values.
+
+    FilterNode:
+      description: Recursive filter AST. Max depth 3, 30 conditions, 100 IN values, 280 characters per text value.
+      oneOf:
+        - $ref: "#/components/schemas/FilterGroup"
+        - $ref: "#/components/schemas/FilterCondition"
+      discriminator:
+        propertyName: kind
+        mapping:
+          group: "#/components/schemas/FilterGroup"
+          condition: "#/components/schemas/FilterCondition"
+
+    FilterGroup:
+      type: object
+      required: [kind, op, children]
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [group] }
+        op: { type: string, enum: [AND, OR] }
+        children:
+          type: array
+          description: Empty only for the top-level AND (meaning all active rows of the book).
+          items: { $ref: "#/components/schemas/FilterNode" }
+
+    FilterCondition:
+      type: object
+      required: [kind, field, operator]
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [condition] }
+        field: { $ref: "#/components/schemas/QueryField" }
+        operator: { $ref: "#/components/schemas/FilterOperator" }
+        value:
+          description: |
+            UUID string, enum name, integer minor units (0..999999999999999), YYYY-MM-DD, ISO-8601
+            timestamp with offset, or non-empty text. IN/NOT_IN: non-empty array (<= 100).
+            BETWEEN: [lower, upper]. Omitted for IS_NULL/IS_NOT_NULL.
+          oneOf:
+            - { type: string }
+            - { type: integer, format: int64 }
+            - type: array
+              items:
+                oneOf: [{ type: string }, { type: integer, format: int64 }]
+
+    SortKey:
+      type: object
+      required: [field, direction]
+      additionalProperties: false
+      properties:
+        field: { $ref: "#/components/schemas/QueryField" }
+        direction: { type: string, enum: [ASC, DESC] }
+
+    TransactionQuery:
+      type: object
+      additionalProperties: false
+      properties:
+        filter:
+          $ref: "#/components/schemas/FilterNode"
+        sort:
+          type: array
+          maxItems: 3
+          description: Default occurredOn DESC, createdAt DESC, id DESC. `id ASC` is appended as tie-breaker when absent. Text sorts are case-normalized; nullable fields use NULLS LAST in both directions; description sorts by coalesced title then note.
+          items: { $ref: "#/components/schemas/SortKey" }
+
+    TransactionSearchRequest:
+      allOf:
+        - $ref: "#/components/schemas/TransactionQuery"
+        - type: object
+          properties:
+            page:
+              type: object
+              additionalProperties: false
+              properties:
+                offset: { type: integer, minimum: 0, maximum: 100000, default: 0 }
+                limit: { type: integer, minimum: 1, maximum: 200, default: 50 }
+
+    TransactionSearchResponse:
+      type: object
+      required: [items, totalCount, page, queryFingerprint]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TransactionResponse" }
+        totalCount: { type: integer, format: int64, description: All rows matching the filter. }
+        page:
+          type: object
+          required: [offset, limit, hasMore]
+          properties:
+            offset: { type: integer }
+            limit: { type: integer }
+            hasMore: { type: boolean }
+        queryFingerprint:
+          type: string
+          description: SHA-256 of the normalized filter + applied sort (not the page). Reset paging when it changes.
+
+    TransactionAnalyzeRequest:
+      type: object
+      required: [bucket, window]
+      additionalProperties: false
+      properties:
+        filter: { $ref: "#/components/schemas/FilterNode" }
+        bucket: { type: string, enum: [DAY, MONTH, YEAR] }
+        window:
+          type: object
+          required: [startDate, endDate]
+          additionalProperties: false
+          description: Inclusive occurredOn window, at most 5 years.
+          properties:
+            startDate: { type: string, format: date }
+            endDate: { type: string, format: date }
+
+    TransactionAnalysisResponse:
+      type: object
+      required:
+        [
+          bookId,
+          currencyCode,
+          bucket,
+          window,
+          effectiveFilter,
+          queryFingerprint,
+          matchedCount,
+          incomeTotalMinor,
+          expenseTotalMinor,
+          netMinor,
+          categories,
+          buckets,
+          categoryBuckets
+        ]
+      properties:
+        bookId: { type: string, format: uuid }
+        currencyCode: { type: string }
+        bucket: { type: string, enum: [DAY, MONTH, YEAR] }
+        window:
+          type: object
+          properties:
+            startDate: { type: string, format: date }
+            endDate: { type: string, format: date }
+        effectiveFilter:
+          $ref: "#/components/schemas/FilterNode"
+        queryFingerprint: { type: string }
+        matchedCount: { type: integer, format: int64 }
+        incomeTotalMinor: { type: integer, format: int64 }
+        expenseTotalMinor: { type: integer, format: int64 }
+        netMinor:
+          {
+            type: integer,
+            format: int64,
+            description: income - expense of the matches. Opening balance is not included.
+          }
+        categories:
+          type: array
+          items:
+            type: object
+            required: [categoryId, categoryName, type, totalMinor, count]
+            properties:
+              categoryId: { type: string, format: uuid }
+              categoryName: { type: string }
+              type: { $ref: "#/components/schemas/TransactionType" }
+              totalMinor: { type: integer, format: int64 }
+              count: { type: integer, format: int64 }
+              percentOfExpense:
+                type: number
+                nullable: true
+                description: Share of the FILTERED expense total (0-100, 2 decimals); null for income or a zero denominator.
+        buckets:
+          type: array
+          description: Every period of the window, zero buckets included.
+          items:
+            type: object
+            required:
+              [key, start, end, partial, incomeTotalMinor, expenseTotalMinor, netMinor, count]
+            properties:
+              key: { type: string, description: "YYYY-MM-DD, YYYY-MM or YYYY" }
+              start: { type: string, format: date, description: Clipped to the window. }
+              end: { type: string, format: date, description: Clipped to the window. }
+              partial:
+                {
+                  type: boolean,
+                  description: True when the calendar period is only partly inside the window.
+                }
+              incomeTotalMinor: { type: integer, format: int64 }
+              expenseTotalMinor: { type: integer, format: int64 }
+              netMinor: { type: integer, format: int64 }
+              count: { type: integer, format: int64 }
+        categoryBuckets:
+          type: array
+          description: Dense categories x buckets cells (zeros included), capped at 20000 (else 422 ANALYSIS_TOO_LARGE).
+          items:
+            type: object
+            required: [categoryId, type, bucketKey, totalMinor, count]
+            properties:
+              categoryId: { type: string, format: uuid }
+              type: { $ref: "#/components/schemas/TransactionType" }
+              bucketKey: { type: string }
+              totalMinor: { type: integer, format: int64 }
+              count: { type: integer, format: int64 }
+        largestExpense:
+          allOf: [{ $ref: "#/components/schemas/TransactionResponse" }]
+          nullable: true
+        monthlyBudgets:
+          type: object
+          nullable: true
+          description: Present only when the window is exactly one full calendar month. Full-month targets, not filtered allowances.
+          properties:
+            month: { type: string, example: "2025-04" }
+            label: { type: string }
+            items:
+              type: array
+              items:
+                type: object
+                properties:
+                  categoryId: { type: string, format: uuid }
+                  categoryName: { type: string }
+                  amountMinor: { type: integer, format: int64 }
 
     BudgetUpsertRequest:
       type: object
