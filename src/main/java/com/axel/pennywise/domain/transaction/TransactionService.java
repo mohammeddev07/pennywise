@@ -77,6 +77,8 @@ public class TransactionService {
           HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "occurredOn or occurredAt is required");
     }
 
+    requireWithinAggregate(book.getId(), type, amountMinor, 0L);
+
     TransactionEntity tx = new TransactionEntity();
     tx.setBook(book);
     tx.setCategory(category);
@@ -205,14 +207,20 @@ public class TransactionService {
     }
     validateCategoryType(resolvedCategory, resolvedType);
 
+    long resolvedAmount = tx.getAmountMinor();
+    if (req.amountMinor() != null) {
+      resolvedAmount = required(req.amountMinor(), "amountMinor");
+      requireValidAmount(resolvedAmount);
+    }
+    if (req.type() != null || req.amountMinor() != null) {
+      // The row's own current amount is already inside the stored total when the type is unchanged.
+      long alreadyCounted = resolvedType == tx.getType() ? tx.getAmountMinor() : 0L;
+      requireWithinAggregate(tx.getBook().getId(), resolvedType, resolvedAmount, alreadyCounted);
+    }
+
     tx.setType(resolvedType);
     tx.setCategory(resolvedCategory);
-
-    if (req.amountMinor() != null) {
-      long amountMinor = required(req.amountMinor(), "amountMinor");
-      requireValidAmount(amountMinor);
-      tx.setAmountMinor(amountMinor);
-    }
+    tx.setAmountMinor(resolvedAmount);
 
     LocalDate reqOccurredOn =
         req.occurredOn() == null ? null : required(req.occurredOn(), "occurredOn");
@@ -311,6 +319,22 @@ public class TransactionService {
           HttpStatus.BAD_REQUEST,
           "VALIDATION_ERROR",
           "amountMinor must be <= " + MoneyLimits.MAX_TRANSACTION_AMOUNT_MINOR);
+    }
+  }
+
+  /**
+   * Keeps every per-book, per-type total within {@link MoneyLimits#MAX_AGGREGATE_AMOUNT_MINOR} so
+   * summaries stay exact when read as a JavaScript number. {@code alreadyCounted} is this row's
+   * amount when it is already part of the stored total (an edit).
+   */
+  private void requireWithinAggregate(
+      UUID bookId, TransactionType type, long amountMinor, long alreadyCounted) {
+    long total = repo.sumAmountByType(bookId, type) - alreadyCounted;
+    if (amountMinor > MoneyLimits.MAX_AGGREGATE_AMOUNT_MINOR - total) {
+      throw new ApiException(
+          HttpStatus.BAD_REQUEST,
+          "VALIDATION_ERROR",
+          "Book total for " + type + " would exceed the supported maximum");
     }
   }
 

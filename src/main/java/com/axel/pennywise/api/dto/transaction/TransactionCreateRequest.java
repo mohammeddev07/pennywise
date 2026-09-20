@@ -3,7 +3,6 @@ package com.axel.pennywise.api.dto.transaction;
 import com.axel.pennywise.domain.common.MoneyLimits;
 import com.axel.pennywise.domain.transaction.PaymentMethod;
 import com.axel.pennywise.domain.transaction.TransactionType;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -19,7 +18,6 @@ import java.util.UUID;
  * is the event instant. Either may be supplied alone (the other is derived in the book timezone);
  * when both are supplied they must agree.
  */
-@JsonIgnoreProperties(ignoreUnknown = false)
 public record TransactionCreateRequest(
     @NotNull TransactionType type,
     @Min(1) @Max(MoneyLimits.MAX_TRANSACTION_AMOUNT_MINOR) long amountMinor,

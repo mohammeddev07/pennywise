@@ -102,7 +102,52 @@ class TransactionServiceTest {
                         && Long.valueOf(3000L).equals(t.getAmountMinor())
                         && occurredOn.equals(t.getOccurredOn())
                         && "Lunch".equals(t.getNote())));
+    verify(repo).sumAmountByType(book.getId(), TransactionType.EXPENSE);
     verifyNoMoreInteractions(repo, categoryRepo);
+  }
+
+  @Test
+  void create_rejectsAmountThatPushesBookTotalPastAggregateLimit() {
+    when(repo.sumAmountByType(book.getId(), TransactionType.EXPENSE))
+        .thenReturn(MoneyLimits.MAX_AGGREGATE_AMOUNT_MINOR - 99L);
+
+    ApiException ex =
+        assertThrows(
+            ApiException.class,
+            () ->
+                service.create(
+                    book,
+                    category,
+                    TransactionType.EXPENSE,
+                    100L,
+                    LocalDate.of(2026, 1, 1),
+                    "x"));
+
+    assertEquals(HttpStatus.BAD_REQUEST, ex.status());
+    verify(repo, never()).save(any());
+  }
+
+  @Test
+  void update_aggregateCheckExcludesTheRowsOwnCurrentAmount() {
+    TransactionEntity existing =
+        tx(txId, LocalDate.of(2026, 1, 1), OffsetDateTime.now(ZoneOffset.UTC));
+    existing.setAmountMinor(500L);
+    // Stored total already holds this row's 500; raising it to 600 lands exactly on the limit.
+    when(repo.sumAmountByType(existing.getBook().getId(), existing.getType()))
+        .thenReturn(MoneyLimits.MAX_AGGREGATE_AMOUNT_MINOR - 100L);
+    when(repo.save(any(TransactionEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    service.update(existing, new TransactionUpdateRequest(null, 600L, null, null, null));
+
+    assertEquals(600L, existing.getAmountMinor());
+
+    TransactionEntity another =
+        tx(txId, LocalDate.of(2026, 1, 1), OffsetDateTime.now(ZoneOffset.UTC));
+    another.setAmountMinor(500L);
+    assertThrows(
+        ApiException.class,
+        () -> service.update(another, new TransactionUpdateRequest(null, 601L, null, null, null)));
+    assertEquals(500L, another.getAmountMinor());
   }
 
   @Test
@@ -160,6 +205,7 @@ class TransactionServiceTest {
 
     assertEquals(LocalDate.of(2026, 1, 31), saved.getOccurredOn());
     assertEquals(occurredAt, saved.getOccurredAt());
+    verify(repo).sumAmountByType(book.getId(), TransactionType.EXPENSE);
     verify(repo).save(saved);
     verifyNoMoreInteractions(repo, categoryRepo);
   }
@@ -212,6 +258,7 @@ class TransactionServiceTest {
     assertEquals(LocalDate.of(2026, 1, 15), existing.getOccurredOn());
     assertEquals("Updated note", existing.getNote());
 
+    verify(repo).sumAmountByType(existing.getBook().getId(), existing.getType());
     verify(repo).save(existing);
     verifyNoMoreInteractions(repo, categoryRepo);
   }

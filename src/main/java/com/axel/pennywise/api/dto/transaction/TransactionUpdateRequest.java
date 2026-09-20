@@ -4,7 +4,6 @@ import com.axel.pennywise.domain.common.MoneyLimits;
 import com.axel.pennywise.domain.transaction.PaymentMethod;
 import com.axel.pennywise.domain.transaction.TransactionType;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -35,7 +34,6 @@ import lombok.experimental.Accessors;
  *       {@code externalId}, ...) is rejected at deserialization and never reaches this object.
  * </ul>
  */
-@JsonIgnoreProperties(ignoreUnknown = false)
 @JsonAutoDetect(
     fieldVisibility = JsonAutoDetect.Visibility.ANY,
     getterVisibility = JsonAutoDetect.Visibility.NONE,
