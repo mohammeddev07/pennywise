@@ -116,7 +116,6 @@ public class TransactionImportService {
 
     List<String> missing = new ArrayList<>();
     if (isBlank(row.date())) missing.add("Date");
-    if (isBlank(row.description())) missing.add("Description");
     if (isBlank(row.amount())) missing.add("Amount");
     if (isBlank(row.type())) missing.add("Type");
     if (!missing.isEmpty()) {
@@ -128,8 +127,11 @@ public class TransactionImportService {
       return;
     }
 
-    String description = row.description().trim();
-    if (description.length() > MAX_TITLE_LENGTH) {
+    // Description is optional: the app allows untitled transactions and exports them with an empty
+    // Description cell, so requiring it made an export un-importable (a third of the rows
+    // rejected).
+    String description = isBlank(row.description()) ? null : row.description().trim();
+    if (description != null && description.length() > MAX_TITLE_LENGTH) {
       errors.add(
           reject(
               row,
@@ -165,8 +167,11 @@ public class TransactionImportService {
       errors.add(reject(row, "INVALID_AMOUNT", "Invalid Amount value: " + row.amount()));
       return;
     }
-    if (amount.scale() > 2) {
-      errors.add(reject(row, "INVALID_AMOUNT", "Amount must have at most 2 decimal places"));
+    // Minor units follow the book currency (JPY: whole yen, USD: cents), not a fixed 2 decimals.
+    int digits = MoneyLimits.minorUnitDigits(book.getCurrencyCode());
+    if (amount.stripTrailingZeros().scale() > digits) {
+      errors.add(
+          reject(row, "INVALID_AMOUNT", "Amount must have at most " + digits + " decimal places"));
       return;
     }
     if (amount.signum() == 0) {
@@ -220,7 +225,8 @@ public class TransactionImportService {
 
     PaymentMethod paymentMethod = parsePaymentMethod(row.paymentMethod());
 
-    BigInteger unscaledMinor = amount.abs().setScale(2, RoundingMode.UNNECESSARY).unscaledValue();
+    BigInteger unscaledMinor =
+        amount.abs().setScale(digits, RoundingMode.UNNECESSARY).unscaledValue();
     if (unscaledMinor.compareTo(BigInteger.valueOf(MoneyLimits.MAX_TRANSACTION_AMOUNT_MINOR)) > 0) {
       errors.add(reject(row, "INVALID_AMOUNT", "Amount exceeds the supported maximum"));
       return;

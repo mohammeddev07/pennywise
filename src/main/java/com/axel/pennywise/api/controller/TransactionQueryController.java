@@ -18,13 +18,15 @@ import com.axel.pennywise.domain.user.UserService;
 import com.axel.pennywise.exception.ApiException;
 import com.axel.pennywise.security.CurrentUser;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.FilterInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -33,7 +35,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 /**
  * Filter-AST endpoints (P1.2/P1.3). The legacy GET list/export/summary routes stay in {@link
@@ -98,7 +99,7 @@ public class TransactionQueryController {
   }
 
   @PostMapping("/export/query")
-  public ResponseEntity<StreamingResponseBody> exportQuery(
+  public ResponseEntity<Resource> exportQuery(
       Authentication auth, @PathVariable UUID bookId, HttpServletRequest request)
       throws IOException {
     BookEntity book = ownedBook(auth, bookId);
@@ -117,14 +118,23 @@ public class TransactionQueryController {
       Files.deleteIfExists(file);
       throw e;
     }
-    StreamingResponseBody body =
-        out -> {
-          try (InputStream in = Files.newInputStream(file)) {
-            in.transferTo(out);
-          } finally {
-            Files.deleteIfExists(file);
-          }
-        };
+    // Written on the request thread by the message converter (not a StreamingResponseBody): that
+    // runs on a second thread while the security header filter is still unwinding on this one,
+    // which
+    // raced on the response header map (ConcurrentModificationException, seen 1 run in 5). The temp
+    // file is deleted when the converter closes the stream.
+    Resource body =
+        new InputStreamResource(
+            new FilterInputStream(Files.newInputStream(file)) {
+              @Override
+              public void close() throws IOException {
+                try {
+                  super.close();
+                } finally {
+                  Files.deleteIfExists(file);
+                }
+              }
+            });
     return ResponseEntity.ok()
         .header(
             "Content-Disposition",

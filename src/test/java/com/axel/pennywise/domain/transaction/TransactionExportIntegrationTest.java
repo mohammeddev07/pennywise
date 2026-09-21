@@ -9,6 +9,7 @@ import com.axel.pennywise.domain.book.BookRepository;
 import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryRepository;
 import com.axel.pennywise.domain.category.CategoryType;
+import com.axel.pennywise.domain.transaction.query.AbstractPostgresIT;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserRepository;
 import java.io.ByteArrayInputStream;
@@ -22,10 +23,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Reproduces the export endpoint's real request lifecycle: {@code listForExport} runs (and closes)
@@ -39,15 +36,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * write path.
  */
 @SpringBootTest
-@Testcontainers(disabledWithoutDocker = true)
-class TransactionExportIntegrationTest {
-
-  @Container @ServiceConnection
-  static PostgreSQLContainer<?> postgres =
-      new PostgreSQLContainer<>("postgres:16-alpine")
-          .withDatabaseName("pennywise_test")
-          .withUsername("postgres")
-          .withPassword("postgres");
+class TransactionExportIntegrationTest extends AbstractPostgresIT {
 
   @Autowired private UserRepository userRepo;
   @Autowired private BookRepository bookRepo;

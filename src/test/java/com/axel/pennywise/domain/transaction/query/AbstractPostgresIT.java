@@ -13,7 +13,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * jdbc:postgresql://localhost:5432/pw_test?user=postgres}) that database is used instead, so the
  * tests also run on machines without Docker. Skipped when neither is available.
  */
-abstract class AbstractPostgresIT {
+public abstract class AbstractPostgresIT {
 
   private static final String EXTERNAL_URL = System.getenv("PW_TEST_DB_URL");
   private static PostgreSQLContainer<?> container;

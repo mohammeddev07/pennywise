@@ -1,5 +1,6 @@
 package com.axel.pennywise.domain.transaction;
 
+import com.axel.pennywise.domain.common.MoneyLimits;
 import com.axel.pennywise.exception.ApiException;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -45,8 +46,11 @@ public class TransactionExportService {
       dateStyle.setDataFormat(workbook.createDataFormat().getFormat("yyyy-mm-dd"));
       CellStyle timeStyle = workbook.createCellStyle();
       timeStyle.setDataFormat(workbook.createDataFormat().getFormat("hh:mm"));
+      // Minor units scale by the book currency's digits (JPY has none), never a fixed 2.
+      int digits = MoneyLimits.minorUnitDigits(currencyCode);
       CellStyle amountStyle = workbook.createCellStyle();
-      amountStyle.setDataFormat(workbook.createDataFormat().getFormat("0.00"));
+      amountStyle.setDataFormat(
+          workbook.createDataFormat().getFormat(digits == 0 ? "0" : "0." + "0".repeat(digits)));
 
       Row header = sheet.createRow(0);
       for (int i = 0; i < HEADERS.length; i++) {
@@ -55,7 +59,8 @@ public class TransactionExportService {
 
       int rowNum = 1;
       for (TransactionEntity tx : transactions) {
-        writeRow(sheet.createRow(rowNum++), tx, currencyCode, dateStyle, timeStyle, amountStyle);
+        writeRow(
+            sheet.createRow(rowNum++), tx, currencyCode, digits, dateStyle, timeStyle, amountStyle);
       }
 
       workbook.write(out);
@@ -69,6 +74,7 @@ public class TransactionExportService {
       Row row,
       TransactionEntity tx,
       String currencyCode,
+      int digits,
       CellStyle dateStyle,
       CellStyle timeStyle,
       CellStyle amountStyle) {
@@ -84,10 +90,10 @@ public class TransactionExportService {
 
     row.createCell(2).setCellValue(tx.getTitle() == null ? "" : tx.getTitle());
 
-    BigDecimal minor = BigDecimal.valueOf(tx.getAmountMinor(), 2);
+    BigDecimal minor = BigDecimal.valueOf(tx.getAmountMinor(), digits);
     BigDecimal signedAmount = tx.getType() == TransactionType.EXPENSE ? minor.negate() : minor;
     Cell amountCell = row.createCell(3);
-    amountCell.setCellValue(signedAmount.setScale(2, RoundingMode.UNNECESSARY).doubleValue());
+    amountCell.setCellValue(signedAmount.setScale(digits, RoundingMode.UNNECESSARY).doubleValue());
     amountCell.setCellStyle(amountStyle);
 
     row.createCell(4).setCellValue(tx.getType() == TransactionType.EXPENSE ? "Expense" : "Income");

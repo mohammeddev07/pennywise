@@ -57,4 +57,38 @@ class GlobalExceptionHandlerTest {
     assertEquals("VALIDATION_ERROR", response.getBody().error().code());
     assertEquals("Invalid date format. Use YYYY-MM-DD", response.getBody().error().message());
   }
+
+  @Test
+  void unknownPathIsA404NotA500() throws Exception {
+    var response =
+        handler.handleRouting(
+            new org.springframework.web.servlet.resource.NoResourceFoundException(
+                org.springframework.http.HttpMethod.POST, "/v1/auth/logout"));
+
+    assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    assertEquals("NOT_FOUND", response.getBody().error().code());
+  }
+
+  @Test
+  void wrongVerbIsA405WithAllowHeader() {
+    var response =
+        handler.handleRouting(
+            new org.springframework.web.HttpRequestMethodNotSupportedException(
+                "DELETE", java.util.List.of("POST")));
+
+    assertEquals(HttpStatus.METHOD_NOT_ALLOWED, response.getStatusCode());
+    assertEquals("METHOD_NOT_ALLOWED", response.getBody().error().code());
+    assertEquals("POST", response.getHeaders().getFirst("Allow"));
+  }
+
+  @Test
+  void unsupportedMediaTypeIsA415() {
+    var response =
+        handler.handleRouting(
+            new org.springframework.web.HttpMediaTypeNotSupportedException(
+                org.springframework.http.MediaType.TEXT_PLAIN, java.util.List.of()));
+
+    assertEquals(HttpStatus.UNSUPPORTED_MEDIA_TYPE, response.getStatusCode());
+    assertEquals("UNSUPPORTED_MEDIA_TYPE", response.getBody().error().code());
+  }
 }

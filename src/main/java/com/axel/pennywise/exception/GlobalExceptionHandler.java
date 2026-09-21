@@ -17,6 +17,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -151,6 +155,33 @@ public class GlobalExceptionHandler {
                 "FORBIDDEN",
                 "Authenticated user is not allowed to access this resource",
                 List.of()));
+  }
+
+  /**
+   * Routing failures are the client's mistake, not the server's: an unknown path, a wrong verb or
+   * an unsupported media type carry their own 4xx status. Without this the catch-all below answered
+   * them with a logged 500.
+   */
+  @ExceptionHandler({
+    NoResourceFoundException.class,
+    HttpRequestMethodNotSupportedException.class,
+    HttpMediaTypeNotSupportedException.class,
+    HttpMediaTypeNotAcceptableException.class
+  })
+  public ResponseEntity<ErrorResponse> handleRouting(Exception ex) {
+    var routing = (org.springframework.web.ErrorResponse) ex;
+    HttpStatus status = HttpStatus.valueOf(routing.getStatusCode().value());
+    String code =
+        switch (status) {
+          case NOT_FOUND -> "NOT_FOUND";
+          case METHOD_NOT_ALLOWED -> "METHOD_NOT_ALLOWED";
+          case UNSUPPORTED_MEDIA_TYPE -> "UNSUPPORTED_MEDIA_TYPE";
+          default -> "NOT_ACCEPTABLE";
+        };
+    log.warn("Unroutable request: status={}, message={}", status.value(), ex.getMessage());
+    return ResponseEntity.status(status)
+        .headers(routing.getHeaders())
+        .body(error(code, status.getReasonPhrase(), List.of()));
   }
 
   @ExceptionHandler(Exception.class)

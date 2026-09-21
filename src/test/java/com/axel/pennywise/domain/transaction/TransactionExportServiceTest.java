@@ -303,4 +303,84 @@ class TransactionExportServiceTest {
     assertEquals(0, result.importedCount());
     verifyNoInteractions(txService);
   }
+
+  private CategoryEntity expenseCategory() {
+    CategoryEntity category = new CategoryEntity();
+    category.setId(UUID.randomUUID());
+    category.setBook(book);
+    category.setType(CategoryType.EXPENSE);
+    category.setName("Food");
+    when(categoryService.getOrCreateForImport(book, CategoryType.EXPENSE, "Food"))
+        .thenReturn(new CategoryService.CategoryLookupResult(category, false));
+    return category;
+  }
+
+  private TransactionEntity expense(CategoryEntity category, long amountMinor, String title) {
+    TransactionEntity tx = new TransactionEntity();
+    tx.setId(UUID.randomUUID());
+    tx.setBook(book);
+    tx.setCategory(category);
+    tx.setType(TransactionType.EXPENSE);
+    tx.setAmountMinor(amountMinor);
+    tx.setOccurredOn(LocalDate.of(2026, 3, 5));
+    tx.setTitle(title);
+    return tx;
+  }
+
+  /**
+   * JPY has no minor unit: 1500 stored means 1,500 yen, so the sheet must say -1500, not -15.00.
+   */
+  @Test
+  void zeroDecimalCurrencyIsExportedAndImportedInWholeUnits() throws IOException {
+    book.setCurrencyCode("JPY");
+    CategoryEntity category = expenseCategory();
+    TransactionEntity tx = expense(category, 1500L, "Ramen");
+
+    MockMultipartFile file = reimport(tx);
+    try (var wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook(file.getInputStream())) {
+      assertEquals(-1500.0, wb.getSheetAt(0).getRow(1).getCell(3).getNumericCellValue());
+    }
+
+    ImportResult result = importService.importXlsx(book, file);
+
+    assertEquals(1, result.importedCount());
+    verify(txService)
+        .create(
+            eq(book),
+            eq(category),
+            eq(TransactionType.EXPENSE),
+            eq(1500L),
+            eq(LocalDate.of(2026, 3, 5)),
+            isNull(),
+            eq("Ramen"),
+            isNull(),
+            any(),
+            any());
+  }
+
+  /**
+   * The app allows untitled transactions, so an export of them must import back, not be rejected.
+   */
+  @Test
+  void untitledTransactionRoundTripsThroughImport() {
+    CategoryEntity category = expenseCategory();
+    TransactionEntity tx = expense(category, 1234L, null);
+
+    ImportResult result = importService.importXlsx(book, reimport(tx));
+
+    assertEquals(1, result.importedCount());
+    assertEquals(0, result.failedCount());
+    verify(txService)
+        .create(
+            eq(book),
+            eq(category),
+            eq(TransactionType.EXPENSE),
+            eq(1234L),
+            eq(LocalDate.of(2026, 3, 5)),
+            isNull(),
+            isNull(),
+            isNull(),
+            any(),
+            any());
+  }
 }
