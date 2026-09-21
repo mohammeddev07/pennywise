@@ -164,7 +164,7 @@ class TransactionImportServiceTest {
   @Test
   void missingRequiredFieldIsRejectedWithRowNumber() {
     MockMultipartFile f =
-        file(new String[][] {{"2026-01-05", null, null, "-12.34", "Expense", "Food"}});
+        file(new String[][] {{"2026-01-05", null, "Coffee", null, "Expense", "Food"}});
 
     ImportResult result = importService.importXlsx(book, f);
 
@@ -172,6 +172,38 @@ class TransactionImportServiceTest {
     assertEquals(2, result.errors().get(0).rowNumber());
     assertEquals("MISSING_REQUIRED_FIELD", result.errors().get(0).code());
     verifyNoInteractions(txService);
+  }
+
+  /**
+   * The app allows untitled transactions and exports them with an empty Description cell, so an
+   * export must import back: a blank Description becomes a null title, not a rejected row.
+   */
+  @Test
+  void blankDescriptionImportsAsUntitledTransaction() {
+    when(categoryService.getOrCreateForImport(eq(book), eq(CategoryType.EXPENSE), eq("Food")))
+        .thenReturn(
+            new CategoryService.CategoryLookupResult(
+                someCategory(CategoryType.EXPENSE, "Food"), false));
+
+    MockMultipartFile f =
+        file(new String[][] {{"2026-01-05", null, null, "-12.34", "Expense", "Food"}});
+
+    ImportResult result = importService.importXlsx(book, f);
+
+    assertEquals(1, result.importedCount());
+    assertEquals(0, result.failedCount());
+    verify(txService)
+        .create(
+            eq(book),
+            any(),
+            eq(TransactionType.EXPENSE),
+            eq(1234L),
+            eq(LocalDate.of(2026, 1, 5)),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull());
   }
 
   @Test

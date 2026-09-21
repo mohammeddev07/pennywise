@@ -17,6 +17,7 @@ import com.axel.pennywise.domain.book.BookRepository;
 import com.axel.pennywise.domain.category.CategoryEntity;
 import com.axel.pennywise.domain.category.CategoryRepository;
 import com.axel.pennywise.domain.category.CategoryType;
+import com.axel.pennywise.domain.transaction.query.AbstractPostgresIT;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -30,7 +31,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -39,9 +39,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * P1.1 record-history invariants, exercised through the real HTTP stack against PostgreSQL: the
@@ -54,16 +51,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@Testcontainers(disabledWithoutDocker = true)
 @TestPropertySource(properties = "app.security.auth-enabled=true")
-class TransactionInvariantsIntegrationTest {
-
-  @Container @ServiceConnection
-  static PostgreSQLContainer<?> postgres =
-      new PostgreSQLContainer<>("postgres:16-alpine")
-          .withDatabaseName("pennywise_test")
-          .withUsername("postgres")
-          .withPassword("postgres");
+class TransactionInvariantsIntegrationTest extends AbstractPostgresIT {
 
   private static final String USER_A = "p11-user-a";
   private static final String USER_B = "p11-user-b";
