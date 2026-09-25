@@ -389,4 +389,90 @@ class TransactionInvariantsIntegrationTest extends AbstractPostgresIT {
     assertEquals(Instant.parse("2026-02-28T23:30:00Z"), reload(txId).getOccurredAt().toInstant());
     assertNotEquals(0L, reload(txId).getVersion());
   }
+
+  // --- paymentMethod contract (mobile app) -----------------------------------------------------
+  // Explicit null on PATCH clearing the value is covered by
+  // explicitNull_clearsNullableFields_omittedLeavesThem.
+
+  private String createBody(String extraJson) {
+    return "{\"type\":\"EXPENSE\",\"amountMinor\":1500,\"categoryId\":\""
+        + categoryA
+        + "\",\"occurredOn\":\"2026-01-15\""
+        + extraJson
+        + "}";
+  }
+
+  @Test
+  void create_withPaymentMethod_storesIt() throws Exception {
+    JsonNode created = create(createBody(",\"paymentMethod\":\"WALLET\""));
+    UUID txId = UUID.fromString(created.get("id").asText());
+
+    assertEquals("WALLET", created.get("paymentMethod").asText());
+    assertEquals(PaymentMethod.WALLET, reload(txId).getPaymentMethod());
+    mvc.perform(get(txUrl(txId)).with(as(subjectA)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.paymentMethod").value("WALLET"));
+  }
+
+  @Test
+  void create_withoutPaymentMethod_storesNull_notCash() throws Exception {
+    JsonNode created = create(createBody(""));
+    UUID txId = UUID.fromString(created.get("id").asText());
+
+    assertTrue(created.path("paymentMethod").isNull(), "serialized as explicit null");
+    assertNull(reload(txId).getPaymentMethod());
+  }
+
+  @Test
+  void patch_setsPaymentMethod() throws Exception {
+    UUID txId = UUID.fromString(create(createBody("")).get("id").asText());
+    assertNull(reload(txId).getPaymentMethod());
+
+    mvc.perform(patchAs(subjectA, txId, 0, "{\"paymentMethod\":\"BANK_TRANSFER\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.paymentMethod").value("BANK_TRANSFER"))
+        .andExpect(jsonPath("$.version").value(1));
+
+    assertEquals(PaymentMethod.BANK_TRANSFER, reload(txId).getPaymentMethod());
+  }
+
+  @Test
+  void patch_withoutPaymentMethod_leavesItUnchanged() throws Exception {
+    UUID txId = UUID.fromString(createDefault().get("id").asText());
+
+    mvc.perform(patchAs(subjectA, txId, 0, "{\"title\":\"Edited\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.title").value("Edited"))
+        .andExpect(jsonPath("$.paymentMethod").value("CARD"))
+        .andExpect(jsonPath("$.version").value(1));
+
+    TransactionEntity row = reload(txId);
+    assertEquals(PaymentMethod.CARD, row.getPaymentMethod());
+    assertEquals(1L, row.getVersion());
+  }
+
+  @Test
+  void unknownPaymentMethod_isRejected_onCreateAndPatch() throws Exception {
+    mvc.perform(
+            post("/v1/books/" + bookA + "/transactions")
+                .with(as(subjectA))
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(createBody(",\"paymentMethod\":\"PAYPAL\"")))
+        .andExpect(status().isBadRequest());
+    assertEquals(
+        0,
+        jdbc.queryForObject(
+            "select count(*) from expense_tracker.transactions where book_id = ?",
+            Integer.class,
+            bookA));
+
+    UUID txId = UUID.fromString(createDefault().get("id").asText());
+    mvc.perform(patchAs(subjectA, txId, 0, "{\"paymentMethod\":\"PAYPAL\"}"))
+        .andExpect(status().isBadRequest());
+
+    TransactionEntity row = reload(txId);
+    assertEquals(PaymentMethod.CARD, row.getPaymentMethod());
+    assertEquals(0L, row.getVersion());
+  }
 }
