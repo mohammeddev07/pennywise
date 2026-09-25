@@ -8,7 +8,7 @@
 *.swp
 .buildlog/
 .history
-
+.vscode/
 **/node_modules/
 
 # Flutter repo-specific
