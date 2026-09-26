@@ -33,6 +33,15 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+  @ExceptionHandler(RateLimitExceededException.class)
+  public ResponseEntity<ErrorResponse> handleRateLimit(RateLimitExceededException ex) {
+    log.warn(
+        "Rate limit exceeded: code={}, retryAfterSeconds={}", ex.code(), ex.retryAfterSeconds());
+    return ResponseEntity.status(ex.status())
+        .header("Retry-After", String.valueOf(ex.retryAfterSeconds()))
+        .body(error(ex.code(), ex.getMessage(), ex.details()));
+  }
+
   @ExceptionHandler(ApiException.class)
   public ResponseEntity<ErrorResponse> handleApi(ApiException ex) {
     log.warn("API error: code={}, message={}, status={}", ex.code(), ex.getMessage(), ex.status());

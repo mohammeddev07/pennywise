@@ -14,6 +14,7 @@ tags:
   - name: Transactions
   - name: Budgets
   - name: Summary
+  - name: AI Filters
 
 security:
   - bearerAuth: []
@@ -660,6 +661,99 @@ paths:
         "413": { description: Request body larger than 64 KiB (REQUEST_TOO_LARGE) }
         "422": { description: EXPORT_TOO_LARGE }
 
+  /v1/books/{bookId}/filter-proposals:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      tags: [AI Filters]
+      summary: Propose a filter from a natural-language question ("Describe your filter")
+      description: |
+        Turns a <=500 character question into a complete replacement filter proposal, validated
+        through the same field/operator/limit rules as the manual advanced builder (see
+        docs/transaction-query.md and docs/ai-filter-proposals.md) plus category-ownership checks.
+        Nothing is applied server-side: the client reviews/edits the returned `filter` before Apply,
+        exactly like a hand-built filter, and Apply replaces (never merges with) the current filter.
+
+        Off by default (`AI_FILTERS_ENABLED` + `GEMINI_API_KEY`); disabled or unconfigured returns
+        503. Rate-limited per user, both per-minute and per-day; either returns 429 with a
+        `Retry-After` header.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FilterProposalRequest" }
+            example:
+              text: "Groceries over $50 last month"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FilterProposalResponse" }
+              examples:
+                proposal:
+                  summary: A filterable question
+                  value:
+                    status: PROPOSAL
+                    filter:
+                      kind: group
+                      op: AND
+                      children:
+                        - {
+                            kind: condition,
+                            field: categoryName,
+                            operator: CONTAINS,
+                            value: groceries
+                          }
+                        - { kind: condition, field: amountMinor, operator: GTE, value: 5000 }
+                        - {
+                            kind: condition,
+                            field: occurredOn,
+                            operator: BETWEEN,
+                            value: ["2026-05-01", "2026-05-31"]
+                          }
+                    sort: []
+                    summary: 'category name contains "groceries" and amount is at least 50.00 USD and date is between 2026-05-01 and 2026-05-31'
+                    clarification: null
+                    limitation: null
+                clarify:
+                  summary: An ambiguous question
+                  value:
+                    {
+                      status: CLARIFY,
+                      filter: null,
+                      sort: null,
+                      summary: null,
+                      clarification: "Which time range did you mean?",
+                      limitation: null
+                    }
+                unsupported:
+                  summary: A question outside what a filter can express
+                  value:
+                    {
+                      status: UNSUPPORTED,
+                      filter: null,
+                      sort: null,
+                      summary: null,
+                      clarification: null,
+                      limitation: "That request isn't something this filter can express. Use the manual filter builder."
+                    }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422":
+          {
+            description: "AI_FILTER_INVALID, AI_FILTER_INVALID_CATEGORY, AI_FILTER_TOO_MANY_CATEGORIES, or AI_FILTER_REFUSED"
+          }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "502":
+          { description: "AI_FILTER_PROVIDER_ERROR (malformed or unreadable provider response)" }
+        "503":
+          {
+            description: "AI_FILTERS_DISABLED (feature off or unconfigured), or AI_FILTER_PROVIDER_BUSY (provider itself rate-limited)"
+          }
+        "504": { description: "AI_FILTER_TIMEOUT (provider call exceeded its timeout)" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -731,6 +825,15 @@ components:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
     PreconditionFailed:
       description: Precondition Failed (ETag mismatch)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    TooManyRequests:
+      description: Too Many Requests
+      headers:
+        Retry-After:
+          description: Seconds until the client may retry.
+          schema: { type: integer }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -1270,6 +1373,48 @@ components:
                   categoryId: { type: string, format: uuid }
                   categoryName: { type: string }
                   amountMinor: { type: integer, format: int64 }
+
+    FilterProposalRequest:
+      type: object
+      required: [text]
+      additionalProperties: false
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: "Groceries over $50 last month"
+
+    FilterProposalResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [PROPOSAL, CLARIFY, UNSUPPORTED]
+        filter:
+          type: object
+          allOf: [{ $ref: "#/components/schemas/FilterNode" }]
+          nullable: true
+          description: Set only for PROPOSAL - the same shape as TransactionAnalysisResponse.effectiveFilter.
+        sort:
+          type: array
+          nullable: true
+          maxItems: 1
+          description: Set only for PROPOSAL, and only when the question implied an order.
+          items: { $ref: "#/components/schemas/SortKey" }
+        summary:
+          type: string
+          nullable: true
+          description: Set only for PROPOSAL. Generated server-side from the validated filter, never model prose.
+        clarification:
+          type: string
+          nullable: true
+          description: Set only for CLARIFY - a one-sentence ask to rephrase.
+        limitation:
+          type: string
+          nullable: true
+          description: Set for UNSUPPORTED, or as a side note alongside a PROPOSAL.
 
     BudgetUpsertRequest:
       type: object
