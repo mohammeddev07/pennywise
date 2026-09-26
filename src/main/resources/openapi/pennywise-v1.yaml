@@ -699,9 +699,19 @@ paths:
                       kind: group
                       op: AND
                       children:
-                        - { kind: condition, field: categoryName, operator: CONTAINS, value: groceries }
+                        - {
+                            kind: condition,
+                            field: categoryName,
+                            operator: CONTAINS,
+                            value: groceries
+                          }
                         - { kind: condition, field: amountMinor, operator: GTE, value: 5000 }
-                        - { kind: condition, field: occurredOn, operator: BETWEEN, value: ["2026-05-01", "2026-05-31"] }
+                        - {
+                            kind: condition,
+                            field: occurredOn,
+                            operator: BETWEEN,
+                            value: ["2026-05-01", "2026-05-31"]
+                          }
                     sort: []
                     summary: 'category name contains "groceries" and amount is at least 50.00 USD and date is between 2026-05-01 and 2026-05-31'
                     clarification: null
@@ -709,7 +719,14 @@ paths:
                 clarify:
                   summary: An ambiguous question
                   value:
-                    { status: CLARIFY, filter: null, sort: null, summary: null, clarification: "Which time range did you mean?", limitation: null }
+                    {
+                      status: CLARIFY,
+                      filter: null,
+                      sort: null,
+                      summary: null,
+                      clarification: "Which time range did you mean?",
+                      limitation: null
+                    }
                 unsupported:
                   summary: A question outside what a filter can express
                   value:
@@ -729,7 +746,8 @@ paths:
             description: "AI_FILTER_INVALID, AI_FILTER_INVALID_CATEGORY, AI_FILTER_TOO_MANY_CATEGORIES, or AI_FILTER_REFUSED"
           }
         "429": { $ref: "#/components/responses/TooManyRequests" }
-        "502": { description: "AI_FILTER_PROVIDER_ERROR (malformed or unreadable provider response)" }
+        "502":
+          { description: "AI_FILTER_PROVIDER_ERROR (malformed or unreadable provider response)" }
         "503":
           {
             description: "AI_FILTERS_DISABLED (feature off or unconfigured), or AI_FILTER_PROVIDER_BUSY (provider itself rate-limited)"
@@ -1375,6 +1393,7 @@ components:
           type: string
           enum: [PROPOSAL, CLARIFY, UNSUPPORTED]
         filter:
+          type: object
           allOf: [{ $ref: "#/components/schemas/FilterNode" }]
           nullable: true
           description: Set only for PROPOSAL - the same shape as TransactionAnalysisResponse.effectiveFilter.
