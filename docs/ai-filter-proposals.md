@@ -19,14 +19,14 @@ access for the model.
 
 ### Environment variables
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `AI_FILTERS_ENABLED` | `false` | Feature flag / kill switch. Off by default. |
-| `GEMINI_API_KEY` | *(empty)* | Required for the feature to actually run. |
-| `AI_MODEL` | `gemini-2.5-flash-lite` | Model id passed to `generateContent`. |
-| `AI_GEMINI_TIMEOUT_SECONDS` | `10` | Connect + read timeout on the Gemini call. |
-| `AI_FILTER_RATE_PER_MINUTE` | `10` | Per-user in-memory burst limit. |
-| `AI_FILTER_RATE_PER_DAY` | `100` | Per-user atomic DB quota (see below). |
+| Variable                    | Default                 | Purpose                                     |
+| --------------------------- | ----------------------- | ------------------------------------------- |
+| `AI_FILTERS_ENABLED`        | `false`                 | Feature flag / kill switch. Off by default. |
+| `GEMINI_API_KEY`            | _(empty)_               | Required for the feature to actually run.   |
+| `AI_MODEL`                  | `gemini-2.5-flash-lite` | Model ID passed to `generateContent`.       |
+| `AI_GEMINI_TIMEOUT_SECONDS` | `10`                    | Connect + read timeout on the Gemini call.  |
+| `AI_FILTER_RATE_PER_MINUTE` | `10`                    | Per-user in-memory burst limit.             |
+| `AI_FILTER_RATE_PER_DAY`    | `100`                   | Per-user atomic DB quota (see below).       |
 
 The feature is only live when **both** `AI_FILTERS_ENABLED=true` and `GEMINI_API_KEY` is set;
 either being absent returns `503 AI_FILTERS_DISABLED` and manual filters are unaffected.
@@ -39,7 +39,8 @@ runtime-refreshable config in this app (no Spring Cloud Config / Actuator `/refr
 flipping it requires a restart - the same as every other `@Value`-backed setting here (e.g.
 `app.security.auth-enabled`).
 
-**Also configure, outside this repo:**
+**Also configure, outside this repository:**
+
 - A budget/usage alert in Google Cloud / AI Studio billing for the API key's project. This is a
   notification, not a cap - it does not stop calls once tripped.
 - The daily-quota table (`ai_filter_quota`, below) is the actual hard cap on call volume per
@@ -80,7 +81,7 @@ first use - simpler and always visible rather than a one-time toast that could b
 > Sent to our AI provider to build this filter, along with this book's category names. Review
 > every condition before applying - this replaces your current filter, it does not merge with it.
 
-Only the question text, the allowed field/operator schema, this book's category id/name/type
+Only the question text, the allowed field/operator schema, this book's category ID/name/type
 list, currency, minor-unit digits, timezone and the server-computed reference date are sent.
 No ledger rows, balances, account email, auth tokens, other books, or transaction history are
 sent. Category names and the question are treated as untrusted data in the prompt (see
@@ -103,7 +104,7 @@ same across `generateContent`-compatible Gemini models.
   accepts from the manual advanced builder and runs it through **that same parser** - every
   existing check (unknown fields, illegal field/operator pairs, UUID format, depth/condition/
   IN-size limits, integer precision) applies unchanged.
-- Category ids are additionally checked against this book's own category list (ownership),
+- Category IDs are additionally checked against this book's own category list (ownership),
   and every field is checked against the AI-allowed subset, as defense in depth on top of the
   schema already constraining the model to them.
 - Amounts are converted from major to minor units using this book's own currency
@@ -130,7 +131,7 @@ same across `generateContent`-compatible Gemini models.
   does exist - category ownership, field allowlist, amount/date conversion, AND/OR/exclusion
   shapes). Treat the >=90%-of-clear-questions bar as **not yet measured** for this build; do
   not enable for real users beyond a personal pilot until that evaluation exists and passes.
-- No WireMock/HTTP-level stub for `GeminiFilterClient` exists in this repo (no WireMock
+- No WireMock/HTTP-level stub for `GeminiFilterClient` exists in this repository (no WireMock
   dependency was present before this feature); provider-error paths (timeout, 429, refusal,
   malformed JSON) are covered by manual code review of `GeminiFilterClient`, not by an
   automated stubbed-HTTP test yet.
