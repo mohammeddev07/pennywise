@@ -13,7 +13,7 @@ access for the model.
   `generateContent` with `responseMimeType: application/json` + a bounded `responseSchema`
   (structured output). No SDK/LangChain/Spring AI - a single Spring-autoconfigured `RestClient`
   call in `GeminiFilterClient`.
-- Get an API key from Google AI Studio (https://aistudio.google.com/apikey). This key is a
+- Get an API key from Google AI Studio (<https://aistudio.google.com/apikey>). This key is a
   **secret**: it lives only in server env vars, never in an `EXPO_PUBLIC_*` variable, and is
   never returned to the client or logged.
 
@@ -53,7 +53,7 @@ flipping it requires a restart - the same as every other `@Value`-backed setting
 Per call: system instruction (~300-600 tokens depending on category count) + a <=500 char
 question (~150 tokens worst case) + up to 1024 output tokens (`maxOutputTokens`, enforced
 server-side). At `gemini-2.5-flash-lite` list pricing (check
-https://ai.google.dev/gemini-api/docs/pricing for current rates - this changes), that is a
+<https://ai.google.dev/gemini-api/docs/pricing> for current rates - this changes), that is a
 small fraction of a cent per call. At the default `AI_FILTER_RATE_PER_DAY=100`, worst case is
 ~100 calls/user/day; a single personal-pilot user costs at most a few cents/day even at the cap.
 

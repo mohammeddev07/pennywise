@@ -35,7 +35,8 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(RateLimitExceededException.class)
   public ResponseEntity<ErrorResponse> handleRateLimit(RateLimitExceededException ex) {
-    log.warn("Rate limit exceeded: code={}, retryAfterSeconds={}", ex.code(), ex.retryAfterSeconds());
+    log.warn(
+        "Rate limit exceeded: code={}, retryAfterSeconds={}", ex.code(), ex.retryAfterSeconds());
     return ResponseEntity.status(ex.status())
         .header("Retry-After", String.valueOf(ex.retryAfterSeconds()))
         .body(error(ex.code(), ex.getMessage(), ex.details()));

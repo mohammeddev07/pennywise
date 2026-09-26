@@ -20,10 +20,10 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 /**
- * Thin adapter over Gemini's {@code generateContent} REST call for structured JSON output. One
- * call per proposal, no retries, no streaming, no chat history: {@link FilterProposalService}
- * sends a single question and gets back a single {@link ProviderProposal} or a mapped failure.
- * Prompts and raw model output are never logged, only latency/status/token counts.
+ * Thin adapter over Gemini's {@code generateContent} REST call for structured JSON output. One call
+ * per proposal, no retries, no streaming, no chat history: {@link FilterProposalService} sends a
+ * single question and gets back a single {@link ProviderProposal} or a mapped failure. Prompts and
+ * raw model output are never logged, only latency/status/token counts.
  */
 @Slf4j
 @Component
@@ -85,7 +85,8 @@ public class GeminiFilterClient {
         new GeminiRequest(
             List.of(new Content("user", List.of(new Part(userQuestion)))),
             new SystemInstruction(List.of(new Part(systemInstruction))),
-            new GenerationConfig("application/json", buildResponseSchema(), MAX_OUTPUT_TOKENS, 0.0));
+            new GenerationConfig(
+                "application/json", buildResponseSchema(), MAX_OUTPUT_TOKENS, 0.0));
 
     RestClient client = client();
 
@@ -106,8 +107,7 @@ public class GeminiFilterClient {
           "AI_FILTER_TIMEOUT",
           "The AI took too long to respond. Try again, or use the manual filter.");
     } catch (RestClientResponseException e) {
-      log.warn(
-          "Gemini call failed: model={}, httpStatus={}", model, e.getStatusCode().value());
+      log.warn("Gemini call failed: model={}, httpStatus={}", model, e.getStatusCode().value());
       if (e.getStatusCode().value() == 429) {
         throw new ApiException(
             HttpStatus.SERVICE_UNAVAILABLE,
@@ -197,7 +197,8 @@ public class GeminiFilterClient {
    * support {@code anyOf} across scalar/array types.
    */
   Map<String, Object> buildResponseSchema() {
-    List<String> fieldNames = AiFilterFields.ALLOWED.stream().map(TxField::wireName).sorted().toList();
+    List<String> fieldNames =
+        AiFilterFields.ALLOWED.stream().map(TxField::wireName).sorted().toList();
     List<String> operatorNames = Arrays.stream(FilterOperator.values()).map(Enum::name).toList();
     List<String> datePresetNames = Arrays.stream(DatePreset.values()).map(Enum::name).toList();
 
@@ -248,7 +249,9 @@ public class GeminiFilterClient {
   // ---------------------------------------------------------------- wire records
 
   private record GeminiRequest(
-      List<Content> contents, SystemInstruction systemInstruction, GenerationConfig generationConfig) {}
+      List<Content> contents,
+      SystemInstruction systemInstruction,
+      GenerationConfig generationConfig) {}
 
   private record Content(String role, List<Part> parts) {}
 

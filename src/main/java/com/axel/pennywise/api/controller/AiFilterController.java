@@ -21,10 +21,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * "Describe your filter": proposes a P1 filter from a natural-language question. This never
- * applies anything - the client reviews/edits the proposal in the normal advanced filter builder
- * and Applies it through the normal path, exactly like a hand-built filter. Book ownership is
- * resolved first, same as {@link TransactionQueryController}.
+ * "Describe your filter": proposes a P1 filter from a natural-language question. This never applies
+ * anything - the client reviews/edits the proposal in the normal advanced filter builder and
+ * Applies it through the normal path, exactly like a hand-built filter. Book ownership is resolved
+ * first, same as {@link TransactionQueryController}.
  */
 @Slf4j
 @RestController
@@ -40,7 +40,9 @@ public class AiFilterController {
 
   @PostMapping
   public ResponseEntity<FilterProposalResponse> propose(
-      Authentication auth, @PathVariable UUID bookId, @Valid @RequestBody FilterProposalRequest req) {
+      Authentication auth,
+      @PathVariable UUID bookId,
+      @Valid @RequestBody FilterProposalRequest req) {
     UserEntity user =
         userService.getOrCreate(
             auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));

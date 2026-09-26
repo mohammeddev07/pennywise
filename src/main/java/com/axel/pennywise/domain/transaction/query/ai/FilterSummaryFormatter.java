@@ -21,7 +21,8 @@ import org.springframework.stereotype.Component;
 @Component
 class FilterSummaryFormatter {
 
-  String describe(FilterNode node, Map<UUID, String> categoryNames, int minorUnitDigits, String currencyCode) {
+  String describe(
+      FilterNode node, Map<UUID, String> categoryNames, int minorUnitDigits, String currencyCode) {
     String text = render(node, categoryNames, minorUnitDigits, currencyCode);
     return text.isBlank() ? "all transactions" : text;
   }
@@ -53,7 +54,8 @@ class FilterSummaryFormatter {
           case NE -> "is not " + value(c.field(), c.value(), categoryNames, digits, currency);
           case IN -> "is one of " + listValue(c.field(), c.value(), categoryNames);
           case NOT_IN -> "is none of " + listValue(c.field(), c.value(), categoryNames);
-          case GT -> "is greater than " + value(c.field(), c.value(), categoryNames, digits, currency);
+          case GT ->
+              "is greater than " + value(c.field(), c.value(), categoryNames, digits, currency);
           case GTE -> "is at least " + value(c.field(), c.value(), categoryNames, digits, currency);
           case LT -> "is less than " + value(c.field(), c.value(), categoryNames, digits, currency);
           case LTE -> "is at most " + value(c.field(), c.value(), categoryNames, digits, currency);

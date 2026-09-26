@@ -27,11 +27,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 /**
- * Turns a {@link ProviderProposal} (already schema-shaped by Gemini) into a validated {@link
- * Query} by building the exact wire JSON {@link QueryRequestParser} already accepts from the
- * manual advanced builder, then running it through that same parser. This is deliberately the only
- * place that understands the provider's shape; everything downstream of {@link #buildValidatedQuery}
- * is indistinguishable from a hand-built filter.
+ * Turns a {@link ProviderProposal} (already schema-shaped by Gemini) into a validated {@link Query}
+ * by building the exact wire JSON {@link QueryRequestParser} already accepts from the manual
+ * advanced builder, then running it through that same parser. This is deliberately the only place
+ * that understands the provider's shape; everything downstream of {@link #buildValidatedQuery} is
+ * indistinguishable from a hand-built filter.
  */
 @Slf4j
 @Component
@@ -45,13 +45,17 @@ class FilterProposalMapper {
   }
 
   Query buildValidatedQuery(
-      ProviderProposal proposal, BookEntity book, Set<UUID> ownedCategoryIds, LocalDate referenceDate) {
+      ProviderProposal proposal,
+      BookEntity book,
+      Set<UUID> ownedCategoryIds,
+      LocalDate referenceDate) {
     List<ProviderGroup> groups = proposal.groups();
     if (groups == null || groups.isEmpty()) {
       throw invalid("proposal had no filter groups");
     }
 
-    List<ObjectNode> groupNodes = groups.stream().map(g -> mapGroup(g, book, referenceDate)).toList();
+    List<ObjectNode> groupNodes =
+        groups.stream().map(g -> mapGroup(g, book, referenceDate)).toList();
 
     ObjectNode filterNode;
     if (groupNodes.size() == 1) {
@@ -110,10 +114,20 @@ class FilterProposalMapper {
       operator = null;
     }
     if (operator == null) throw invalid("condition used an unsupported operator: " + c.operator());
+    // A date preset always resolves to a closed [start, end] range. Forcing BETWEEN here means
+    // "today"/"this month" behave the same regardless of which scalar operator (EQ, GTE, ...) the
+    // model happened to pick for it, and the array value below is never paired with a scalar
+    // operator that QueryRequestParser would reject.
+    if (field.kind() == TxField.Kind.DATE && c.datePreset() != null) {
+      operator = FilterOperator.BETWEEN;
+    }
 
     ObjectNode node =
-        mapper.createObjectNode().put("kind", "condition").put("field", field.wireName()).put(
-            "operator", operator.name());
+        mapper
+            .createObjectNode()
+            .put("kind", "condition")
+            .put("field", field.wireName())
+            .put("operator", operator.name());
 
     if (operator == FilterOperator.IS_NULL || operator == FilterOperator.IS_NOT_NULL) {
       return node; // no value
@@ -178,7 +192,8 @@ class FilterProposalMapper {
     return mapper.getNodeFactory().textNode(requireText(c.dateValue(), "date"));
   }
 
-  private com.fasterxml.jackson.databind.JsonNode enumValue(ProviderCondition c, FilterOperator op) {
+  private com.fasterxml.jackson.databind.JsonNode enumValue(
+      ProviderCondition c, FilterOperator op) {
     if (op == FilterOperator.IN || op == FilterOperator.NOT_IN) {
       if (c.stringArrayValue() == null || c.stringArrayValue().isEmpty()) {
         throw invalid("enum list condition is missing values");
@@ -187,7 +202,9 @@ class FilterProposalMapper {
       c.stringArrayValue().forEach(v -> arr.add(v.toUpperCase(Locale.ROOT)));
       return arr;
     }
-    return mapper.getNodeFactory().textNode(requireText(c.stringValue(), "enum").toUpperCase(Locale.ROOT));
+    return mapper
+        .getNodeFactory()
+        .textNode(requireText(c.stringValue(), "enum").toUpperCase(Locale.ROOT));
   }
 
   private com.fasterxml.jackson.databind.JsonNode listOrScalarText(
@@ -222,9 +239,9 @@ class FilterProposalMapper {
   }
 
   /**
-   * Belt-and-braces after the P1 parser already validated shape/limits: a category id must
-   * actually belong to this book, and every field must still be one the AI was allowed to use (the
-   * schema already guarantees the latter; this is defense in depth, not the primary control).
+   * Belt-and-braces after the P1 parser already validated shape/limits: a category id must actually
+   * belong to this book, and every field must still be one the AI was allowed to use (the schema
+   * already guarantees the latter; this is defense in depth, not the primary control).
    */
   private void requireOwnedCategoriesAndAllowedFields(FilterNode node, Set<UUID> ownedCategoryIds) {
     if (node instanceof Group g) {
@@ -252,6 +269,7 @@ class FilterProposalMapper {
     return new ApiException(
         HttpStatus.UNPROCESSABLE_ENTITY,
         "AI_FILTER_INVALID",
-        "Couldn't build a valid filter from that question. Try rephrasing, or use the manual filter.");
+        "Couldn't build a valid filter from that question. Try rephrasing, or use the manual"
+            + " filter.");
   }
 }

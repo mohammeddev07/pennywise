@@ -8,8 +8,8 @@ import java.util.List;
  * GeminiFilterClient#buildResponseSchema()}). This is NOT the P1 filter AST - {@link
  * FilterProposalMapper} maps it into that, running it through the same {@link
  * com.axel.pennywise.domain.transaction.query.QueryRequestParser} every other filter goes through.
- * Unknown properties are ignored rather than rejected: the schema already constrains what the
- * model can emit, so this binding is a convenience, not the trust boundary.
+ * Unknown properties are ignored rather than rejected: the schema already constrains what the model
+ * can emit, so this binding is a convenience, not the trust boundary.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 record ProviderProposal(

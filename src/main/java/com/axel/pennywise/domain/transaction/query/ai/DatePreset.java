@@ -4,9 +4,9 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 
 /**
- * Relative date phrases the model may name instead of computing dates itself. The AI only picks
- * one of these; the actual boundaries are resolved here from the book-local reference date, so
- * "last month" is always correct regardless of what the model believes today's date is.
+ * Relative date phrases the model may name instead of computing dates itself. The AI only picks one
+ * of these; the actual boundaries are resolved here from the book-local reference date, so "last
+ * month" is always correct regardless of what the model believes today's date is.
  */
 enum DatePreset {
   TODAY,

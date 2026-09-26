@@ -99,8 +99,9 @@ public class FilterProposalService {
               null,
               safeMessage(
                   proposal.limitation(),
-                  "That request isn't something this filter can express. Use the manual filter builder."));
-      case "PROPOSAL" -> buildProposalResponse(proposal, book, categories);
+                  "That request isn't something this filter can express. Use the manual filter"
+                      + " builder."));
+      case "PROPOSAL" -> buildProposalResponse(proposal, book, categories, referenceDate);
       default ->
           throw new ApiException(
               HttpStatus.BAD_GATEWAY,
@@ -110,13 +111,19 @@ public class FilterProposalService {
   }
 
   private FilterProposalResponse buildProposalResponse(
-      ProviderProposal proposal, BookEntity book, List<CategoryEntity> categories) {
-    var ownedCategoryIds = categories.stream().map(CategoryEntity::getId).collect(Collectors.toSet());
-    Query query =
-        mapper.buildValidatedQuery(proposal, book, ownedCategoryIds, LocalDate.now(zoneIdFor(book)));
+      ProviderProposal proposal,
+      BookEntity book,
+      List<CategoryEntity> categories,
+      LocalDate referenceDate) {
+    var ownedCategoryIds =
+        categories.stream().map(CategoryEntity::getId).collect(Collectors.toSet());
+    // Reuse the exact reference date the prompt told Gemini "today" was - recomputing it here
+    // could disagree with the prompt across a midnight boundary in the book's timezone.
+    Query query = mapper.buildValidatedQuery(proposal, book, ownedCategoryIds, referenceDate);
 
     Map<UUID, String> categoryNames =
-        categories.stream().collect(Collectors.toMap(CategoryEntity::getId, CategoryEntity::getName));
+        categories.stream()
+            .collect(Collectors.toMap(CategoryEntity::getId, CategoryEntity::getName));
     int digits = MoneyLimits.minorUnitDigits(book.getCurrencyCode());
     String summary =
         summaryFormatter.describe(query.filter(), categoryNames, digits, book.getCurrencyCode());
@@ -146,7 +153,8 @@ public class FilterProposalService {
 
   private static int secondsUntilUtcMidnight() {
     OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-    OffsetDateTime midnight = now.toLocalDate().plusDays(1).atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
+    OffsetDateTime midnight =
+        now.toLocalDate().plusDays(1).atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
     return (int) Duration.between(now, midnight).toSeconds();
   }
 

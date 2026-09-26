@@ -5,11 +5,11 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * The fields the AI proposer may use: a deliberate subset of {@link TxField}. Audit/identity
- * fields (id, occurredAt, createdAt, updatedAt, externalId) add nothing to a natural-language
- * filter and only widen what a prompt-injected question could target, so they are left out here
- * even though {@link com.axel.pennywise.domain.transaction.query.QueryRequestParser} would accept
- * them from the manual advanced builder.
+ * The fields the AI proposer may use: a deliberate subset of {@link TxField}. Audit/identity fields
+ * (id, occurredAt, createdAt, updatedAt, externalId) add nothing to a natural-language filter and
+ * only widen what a prompt-injected question could target, so they are left out here even though
+ * {@link com.axel.pennywise.domain.transaction.query.QueryRequestParser} would accept them from the
+ * manual advanced builder.
  */
 final class AiFilterFields {
 

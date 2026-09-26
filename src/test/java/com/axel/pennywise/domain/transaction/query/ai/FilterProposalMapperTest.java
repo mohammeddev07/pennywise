@@ -37,7 +37,12 @@ class FilterProposalMapperTest {
   }
 
   private static ProviderCondition condition(
-      String field, String op, String stringValue, Double numberValue, List<String> arr, List<Double> numArr) {
+      String field,
+      String op,
+      String stringValue,
+      Double numberValue,
+      List<String> arr,
+      List<Double> numArr) {
     return new ProviderCondition(field, op, stringValue, numberValue, null, null, arr, numArr);
   }
 
@@ -49,11 +54,14 @@ class FilterProposalMapperTest {
             null,
             null,
             "AND",
-            List.of(new ProviderGroup("AND", List.of(condition("type", "EQ", "EXPENSE", null, null, null)))),
+            List.of(
+                new ProviderGroup(
+                    "AND", List.of(condition("type", "EQ", "EXPENSE", null, null, null)))),
             null,
             null);
 
-    Query query = mapper.buildValidatedQuery(proposal, book("USD"), Set.of(), LocalDate.of(2026, 6, 15));
+    Query query =
+        mapper.buildValidatedQuery(proposal, book("USD"), Set.of(), LocalDate.of(2026, 6, 15));
 
     Condition c = firstCondition(query.filter());
     assertEquals(TxField.TYPE, c.field());
@@ -71,7 +79,8 @@ class FilterProposalMapperTest {
             "AND",
             List.of(
                 new ProviderGroup(
-                    "AND", List.of(condition("categoryId", "EQ", foreign.toString(), null, null, null)))),
+                    "AND",
+                    List.of(condition("categoryId", "EQ", foreign.toString(), null, null, null)))),
             null,
             null);
 
@@ -79,7 +88,8 @@ class FilterProposalMapperTest {
         assertThrows(
             ApiException.class,
             () ->
-                mapper.buildValidatedQuery(proposal, book("USD"), Set.of(owned), LocalDate.of(2026, 6, 15)));
+                mapper.buildValidatedQuery(
+                    proposal, book("USD"), Set.of(owned), LocalDate.of(2026, 6, 15)));
     assertEquals("AI_FILTER_INVALID_CATEGORY", e.code());
   }
 
@@ -91,14 +101,20 @@ class FilterProposalMapperTest {
             null,
             null,
             "AND",
-            List.of(new ProviderGroup("AND", List.of(condition("id", "EQ", UUID.randomUUID().toString(), null, null, null)))),
+            List.of(
+                new ProviderGroup(
+                    "AND",
+                    List.of(
+                        condition("id", "EQ", UUID.randomUUID().toString(), null, null, null)))),
             null,
             null);
 
     ApiException e =
         assertThrows(
             ApiException.class,
-            () -> mapper.buildValidatedQuery(proposal, book("USD"), Set.of(), LocalDate.of(2026, 6, 15)));
+            () ->
+                mapper.buildValidatedQuery(
+                    proposal, book("USD"), Set.of(), LocalDate.of(2026, 6, 15)));
     assertEquals("AI_FILTER_INVALID", e.code());
   }
 
@@ -113,11 +129,14 @@ class FilterProposalMapperTest {
             List.of(
                 new ProviderGroup(
                     "AND",
-                    List.of(condition("amountMinor", "BETWEEN", null, null, null, List.of(10.0, 25.5))))),
+                    List.of(
+                        condition(
+                            "amountMinor", "BETWEEN", null, null, null, List.of(10.0, 25.5))))),
             null,
             null);
 
-    Query query = mapper.buildValidatedQuery(proposal, book("USD"), Set.of(), LocalDate.of(2026, 6, 15));
+    Query query =
+        mapper.buildValidatedQuery(proposal, book("USD"), Set.of(), LocalDate.of(2026, 6, 15));
     Condition c = firstCondition(query.filter());
     assertEquals(List.of(1000L, 2550L), c.value());
   }
@@ -130,11 +149,14 @@ class FilterProposalMapperTest {
             null,
             null,
             "AND",
-            List.of(new ProviderGroup("AND", List.of(condition("amountMinor", "EQ", null, 500.0, null, null)))),
+            List.of(
+                new ProviderGroup(
+                    "AND", List.of(condition("amountMinor", "EQ", null, 500.0, null, null)))),
             null,
             null);
 
-    Query query = mapper.buildValidatedQuery(proposal, book("JPY"), Set.of(), LocalDate.of(2026, 6, 15));
+    Query query =
+        mapper.buildValidatedQuery(proposal, book("JPY"), Set.of(), LocalDate.of(2026, 6, 15));
     Condition c = firstCondition(query.filter());
     assertEquals(500L, c.value());
   }
@@ -145,12 +167,42 @@ class FilterProposalMapperTest {
         new ProviderCondition("occurredOn", "BETWEEN", null, null, null, "LAST_MONTH", null, null);
     ProviderProposal proposal =
         new ProviderProposal(
-            "PROPOSAL", null, null, "AND", List.of(new ProviderGroup("AND", List.of(cond))), null, null);
+            "PROPOSAL",
+            null,
+            null,
+            "AND",
+            List.of(new ProviderGroup("AND", List.of(cond))),
+            null,
+            null);
 
     // Reference date March 15 2026 -> last month is all of February 2026.
-    Query query = mapper.buildValidatedQuery(proposal, book("USD"), Set.of(), LocalDate.of(2026, 3, 15));
+    Query query =
+        mapper.buildValidatedQuery(proposal, book("USD"), Set.of(), LocalDate.of(2026, 3, 15));
     Condition c = firstCondition(query.filter());
     assertEquals(List.of(LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28)), c.value());
+  }
+
+  @Test
+  void datePresetWithMismatchedScalarOperatorIsForcedToBetween() {
+    // The model is free to pick any scalar operator for a preset (EQ, GTE, ...); a preset is
+    // always a closed range, so the effective operator must always end up BETWEEN regardless.
+    ProviderCondition cond =
+        new ProviderCondition("occurredOn", "EQ", null, null, null, "TODAY", null, null);
+    ProviderProposal proposal =
+        new ProviderProposal(
+            "PROPOSAL",
+            null,
+            null,
+            "AND",
+            List.of(new ProviderGroup("AND", List.of(cond))),
+            null,
+            null);
+
+    Query query =
+        mapper.buildValidatedQuery(proposal, book("USD"), Set.of(), LocalDate.of(2026, 6, 15));
+    Condition c = firstCondition(query.filter());
+    assertEquals(com.axel.pennywise.domain.transaction.query.FilterOperator.BETWEEN, c.operator());
+    assertEquals(List.of(LocalDate.of(2026, 6, 15), LocalDate.of(2026, 6, 15)), c.value());
   }
 
   @Test
@@ -165,22 +217,32 @@ class FilterProposalMapperTest {
                 new ProviderGroup(
                     "OR",
                     List.of(
-                        condition("paymentMethod", "NOT_IN", null, null, List.of("CASH", "CARD"), null)))),
+                        condition(
+                            "paymentMethod",
+                            "NOT_IN",
+                            null,
+                            null,
+                            List.of("CASH", "CARD"),
+                            null)))),
             null,
             null);
 
-    Query query = mapper.buildValidatedQuery(proposal, book("USD"), Set.of(), LocalDate.of(2026, 6, 15));
+    Query query =
+        mapper.buildValidatedQuery(proposal, book("USD"), Set.of(), LocalDate.of(2026, 6, 15));
     Group g = (Group) query.filter();
     assertEquals(FilterNode.GroupOp.OR, g.op());
   }
 
   @Test
   void emptyGroupsAreRejected() {
-    ProviderProposal proposal = new ProviderProposal("PROPOSAL", null, null, "AND", List.of(), null, null);
+    ProviderProposal proposal =
+        new ProviderProposal("PROPOSAL", null, null, "AND", List.of(), null, null);
     ApiException e =
         assertThrows(
             ApiException.class,
-            () -> mapper.buildValidatedQuery(proposal, book("USD"), Set.of(), LocalDate.of(2026, 6, 15)));
+            () ->
+                mapper.buildValidatedQuery(
+                    proposal, book("USD"), Set.of(), LocalDate.of(2026, 6, 15)));
     assertEquals("AI_FILTER_INVALID", e.code());
   }
 
@@ -192,13 +254,17 @@ class FilterProposalMapperTest {
             null,
             null,
             "AND",
-            List.of(new ProviderGroup("AND", List.of(condition("type", "MATCHES", "EXPENSE", null, null, null)))),
+            List.of(
+                new ProviderGroup(
+                    "AND", List.of(condition("type", "MATCHES", "EXPENSE", null, null, null)))),
             null,
             null);
     ApiException e =
         assertThrows(
             ApiException.class,
-            () -> mapper.buildValidatedQuery(proposal, book("USD"), Set.of(), LocalDate.of(2026, 6, 15)));
+            () ->
+                mapper.buildValidatedQuery(
+                    proposal, book("USD"), Set.of(), LocalDate.of(2026, 6, 15)));
     assertTrue(e.code().startsWith("AI_FILTER_INVALID"));
   }
 }

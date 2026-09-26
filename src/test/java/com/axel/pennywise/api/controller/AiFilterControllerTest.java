@@ -54,7 +54,8 @@ class AiFilterControllerTest {
   @BeforeEach
   void setUp() {
     objectMapper = new ObjectMapper().findAndRegisterModules();
-    AiFilterController controller = new AiFilterController(userService, bookService, filterProposalService);
+    AiFilterController controller =
+        new AiFilterController(userService, bookService, filterProposalService);
     mockMvc =
         MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new TestExceptionHandler())
@@ -83,7 +84,12 @@ class AiFilterControllerTest {
     when(bookService.requireOwned(bookId, testUser)).thenReturn(testBook);
     FilterProposalResponse response =
         new FilterProposalResponse(
-            "PROPOSAL", Map.of("kind", "group", "op", "AND", "children", List.of()), List.of(), "all transactions", null, null);
+            "PROPOSAL",
+            Map.of("kind", "group", "op", "AND", "children", List.of()),
+            List.of(),
+            "all transactions",
+            null,
+            null);
     when(filterProposalService.propose(eq(testBook), eq(testUser), eq("groceries last month")))
         .thenReturn(response);
 
@@ -168,7 +174,9 @@ class AiFilterControllerTest {
     when(filterProposalService.propose(any(), any(), any()))
         .thenThrow(
             new ApiException(
-                HttpStatus.SERVICE_UNAVAILABLE, "AI_FILTERS_DISABLED", "AI filters are not enabled"));
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "AI_FILTERS_DISABLED",
+                "AI filters are not enabled"));
 
     mockMvc
         .perform(
