@@ -223,7 +223,10 @@ public class GeminiFilterClient {
         "properties",
         Map.of(
             "op", enumSchema(List.of("AND", "OR")),
-            "conditions", Map.of("type", "ARRAY", "items", condition)));
+            // minItems, not just "required": Gemini's structured output enforces array-length
+            // constraints, but a prose instruction alone ("include at least one condition") is
+            // just a suggestion this model has been observed to ignore, returning an empty array.
+            "conditions", Map.of("type", "ARRAY", "items", condition, "minItems", 1)));
     group.put("required", List.of("op", "conditions"));
 
     Map<String, Object> root = new LinkedHashMap<>();
@@ -235,10 +238,15 @@ public class GeminiFilterClient {
             "clarification", Map.of("type", "STRING"),
             "limitation", Map.of("type", "STRING"),
             "topOp", enumSchema(List.of("AND", "OR")),
-            "groups", Map.of("type", "ARRAY", "items", group),
+            // Required + minItems unconditionally, even for CLARIFY/UNSUPPORTED where it's
+            // meaningless - Gemini's schema subset can't express "required only when status is
+            // PROPOSAL" (see FilterProposalMapper's javadoc on anyOf support), and
+            // FilterProposalService never reads "groups" for those two statuses anyway, so
+            // forcing it costs nothing.
+            "groups", Map.of("type", "ARRAY", "items", group, "minItems", 1),
             "sortField", enumSchema(fieldNames),
             "sortDirection", enumSchema(List.of("ASC", "DESC"))));
-    root.put("required", List.of("status"));
+    root.put("required", List.of("status", "groups"));
     return root;
   }
 
