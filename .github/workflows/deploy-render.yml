@@ -1,0 +1,44 @@
+name: Deploy to Render
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or commit to deploy"
+        required: false
+        default: develop
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout ${{ inputs.ref }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set Up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # Render's own deploy has no build gate - it deploys whatever it pulls. Fail here
+      # instead of pushing a build that doesn't compile or a broken test to production.
+      - name: Build and test
+        run: ./gradlew build
+
+      - name: Resolve tested commit
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # A deploy hook with no ref deploys the linked branch's current HEAD, not what was just
+      # built above - if that branch moved between checkout and here, or `ref` above named a
+      # tag/SHA/other branch, this would deploy an untested revision. `git rev-parse HEAD` is
+      # always a 40-char hex SHA, so it needs no URL-encoding.
+      - name: Trigger Render deploy
+        run: curl -sS -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}&ref=${{ steps.commit.outputs.sha }}"
