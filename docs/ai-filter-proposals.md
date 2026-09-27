@@ -9,7 +9,7 @@ access for the model.
 
 ## Provider setup
 
-- Provider: Google Gemini, model `gemini-2.5-flash-lite` (configurable, see below), called via
+- Provider: Google Gemini, model `gemini-3.5-flash-lite` (configurable, see below), called via
   `generateContent` with `responseMimeType: application/json` + a bounded `responseSchema`
   (structured output). No SDK/LangChain/Spring AI - a single Spring-autoconfigured `RestClient`
   call in `GeminiFilterClient`.
@@ -23,7 +23,7 @@ access for the model.
 | --------------------------- | ----------------------- | ------------------------------------------- |
 | `AI_FILTERS_ENABLED`        | `false`                 | Feature flag / kill switch. Off by default. |
 | `GEMINI_API_KEY`            | _(empty)_               | Required for the feature to actually run.   |
-| `AI_MODEL`                  | `gemini-2.5-flash-lite` | Model ID passed to `generateContent`.       |
+| `AI_MODEL`                  | `gemini-3.5-flash-lite` | Model ID passed to `generateContent`.       |
 | `AI_GEMINI_TIMEOUT_SECONDS` | `10`                    | Connect + read timeout on the Gemini call.  |
 | `AI_FILTER_RATE_PER_MINUTE` | `10`                    | Per-user in-memory burst limit.             |
 | `AI_FILTER_RATE_PER_DAY`    | `100`                   | Per-user atomic DB quota (see below).       |
@@ -52,7 +52,7 @@ flipping it requires a restart - the same as every other `@Value`-backed setting
 
 Per call: system instruction (~300-600 tokens depending on category count) + a <=500 char
 question (~150 tokens worst case) + up to 1024 output tokens (`maxOutputTokens`, enforced
-server-side). At `gemini-2.5-flash-lite` list pricing (check
+server-side). At `gemini-3.5-flash-lite` list pricing (check
 <https://ai.google.dev/gemini-api/docs/pricing> for current rates - this changes), that is a
 small fraction of a cent per call. At the default `AI_FILTER_RATE_PER_DAY=100`, worst case is
 ~100 calls/user/day; a single personal-pilot user costs at most a few cents/day even at the cap.
@@ -89,7 +89,7 @@ sent. Category names and the question are treated as untrusted data in the promp
 
 ## Model selection
 
-`gemini-2.5-flash-lite` was chosen for latency/cost on a small, fully-schema-constrained
+`gemini-3.5-flash-lite` was chosen for latency/cost on a small, fully-schema-constrained
 structured-output task (this is not open-ended generation - the model only ever fills a fixed
 JSON shape). `AI_MODEL` is configurable if a different Gemini model is preferred; no code
 change is needed, only the env var, since the endpoint URL and request/response shape are the
