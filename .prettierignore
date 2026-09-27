@@ -7,3 +7,4 @@ dist
 *.jar
 *.class
 target
+src/main/resources/prompts
