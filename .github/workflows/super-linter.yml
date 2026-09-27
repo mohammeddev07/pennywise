@@ -50,6 +50,14 @@ jobs:
           JAVA_FILE_NAME: google_checks.xml
           # Parse Flyway migrations using the PostgreSQL rules in .github/linters
           SQLFLUFF_CONFIG_FILE: .sqlfluff
+          # Files under resources/prompts/ are LLM instructions, not human docs - doc-prose
+          # linters (heading structure, wrapping) don't apply to them. super-linter/super-linter
+          # has no working per-linter FILTER_REGEX_EXCLUDE (that's a MegaLinter convention), and
+          # a global FILTER_REGEX_EXCLUDE would also blind GITLEAKS to that file, so
+          # .prettierignore / .markdownlintignore (each tool's own ignore mechanism, applied even
+          # to explicitly-passed paths) do the exclusion for those two instead. NATURAL_LANGUAGE
+          # (textlint) doesn't honor .textlintignore under super-linter (known upstream issue), so
+          # its one flagged term (id/ids -> ID/IDs) is just fixed in the prompt text itself.
           # Disable linters not applicable to Java backend
           VALIDATE_CHECKOV: false
           VALIDATE_JSCPD: false

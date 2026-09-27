@@ -38,7 +38,7 @@ public class GeminiFilterClient {
   @Value("${app.ai.gemini.api-key:}")
   private String apiKey;
 
-  @Value("${app.ai.gemini.model:gemini-2.5-flash-lite}")
+  @Value("${app.ai.gemini.model:gemini-3.5-flash-lite}")
   private String model;
 
   @Value("${app.ai.gemini.timeout-seconds:10}")
