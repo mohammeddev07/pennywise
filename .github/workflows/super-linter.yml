@@ -50,6 +50,11 @@ jobs:
           JAVA_FILE_NAME: google_checks.xml
           # Parse Flyway migrations using the PostgreSQL rules in .github/linters
           SQLFLUFF_CONFIG_FILE: .sqlfluff
+          # Files under resources/prompts/ are LLM instructions, not human docs - doc-prose
+          # linters (heading structure, wrapping, "id" -> "ID" terminology) don't apply to them.
+          MARKDOWN_FILTER_REGEX_EXCLUDE: .*/resources/prompts/.*
+          MARKDOWN_PRETTIER_FILTER_REGEX_EXCLUDE: .*/resources/prompts/.*
+          NATURAL_LANGUAGE_FILTER_REGEX_EXCLUDE: .*/resources/prompts/.*
           # Disable linters not applicable to Java backend
           VALIDATE_CHECKOV: false
           VALIDATE_JSCPD: false

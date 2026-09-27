@@ -22,7 +22,8 @@ class FilterProposalServiceTest {
 
   @Test
   void systemInstructionTemplateHasNoUnfilledPlaceholders() {
-    String instruction = service.buildSystemInstruction(book(), List.of(), LocalDate.of(2026, 6, 15));
+    String instruction =
+        service.buildSystemInstruction(book(), List.of(), LocalDate.of(2026, 6, 15));
 
     assertFalse(instruction.contains("{{"), "prompt template left an unfilled {{...}} placeholder");
     assertTrue(instruction.contains("2026-06-15"));
