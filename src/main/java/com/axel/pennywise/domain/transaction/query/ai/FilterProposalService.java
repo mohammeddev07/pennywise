@@ -179,6 +179,9 @@ public class FilterProposalService {
     you only decide which filter conditions match the question.
 
     Respond with status PROPOSAL when the question describes a filterable set of transactions.
+    A PROPOSAL response is useless without "groups" filled in: "groups" must contain at least one
+    group, and every group must contain at least one condition that actually expresses the
+    question's filter logic. Never return status PROPOSAL with an empty or missing "groups" array.
     Respond with status CLARIFY when the question is too ambiguous to filter safely (e.g. an
     unspecified time range that materially changes the result, or "cheap"/"expensive" with no
     threshold); put a short one-sentence question in "clarification".
