@@ -67,7 +67,9 @@ No phase advanced with a failing suite. No database-dependent tests were skipped
 V8 sets a five-second lock acquisition timeout. It adds constant-default columns, ranks all existing books by owner/creation time/ID, and updates one row per book, including soft-deleted books.
 Ranking requires a scan and sort; the UPDATE adds row writes, WAL, and dead tuples. The migration transaction holds its acquired DDL lock through the backfill; lock timeout does not bound that duration.
 
-A PostgreSQL 16 fixture containing 10,007 books produced `Seq Scan -> Sort -> WindowAgg`, with an in-memory sort using about 1,010 kB. One targeted run of `EXPLAIN (ANALYZE, BUFFERS)` took approximately 4 ms for ranking. This measures ranking on a small test database, not full production migration duration or lock contention. Production row counts, hardware, load, WAL volume, and lock duration remain unverified.
+A PostgreSQL 16 fixture containing 10,007 books produced `Seq Scan -> Sort -> WindowAgg`, with an in-memory sort using about 1,010 kB.
+One targeted run of `EXPLAIN (ANALYZE, BUFFERS)` took approximately 4 ms for ranking.
+This measures ranking on a small test database, not full production migration duration or lock contention. Production row counts, hardware, load, WAL volume, and lock duration remain unverified.
 
 ## Retained risks and scope
 

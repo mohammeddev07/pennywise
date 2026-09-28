@@ -10,12 +10,16 @@ ALTER TABLE books
 
 -- Preserve audit/financial columns. Rank every existing book, including archived rows.
 WITH ranked AS (
-    SELECT id, row_number() OVER (
-        PARTITION BY owner_user_id ORDER BY created_at, id
-    ) - 1 AS position
+    SELECT
+        id,
+        row_number() OVER (
+            PARTITION BY owner_user_id
+            ORDER BY created_at, id
+        ) - 1 AS book_position
     FROM books
 )
+
 UPDATE books AS b
-SET sort_order = ranked.position
+SET sort_order = ranked.book_position
 FROM ranked
 WHERE b.id = ranked.id;
