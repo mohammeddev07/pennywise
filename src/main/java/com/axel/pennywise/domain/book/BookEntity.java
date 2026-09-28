@@ -34,4 +34,13 @@ public class BookEntity extends AuditedEntity {
 
   @Column(nullable = false)
   private long openingBalanceMinor;
+
+  @Column(nullable = false)
+  private String icon = BookStyles.DEFAULT_ICON;
+
+  @Column(nullable = false)
+  private String color = BookStyles.DEFAULT_COLOR;
+
+  @Column(nullable = false)
+  private long sortOrder;
 }

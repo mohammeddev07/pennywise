@@ -23,6 +23,7 @@ import org.springframework.http.HttpStatus;
 class BookServiceTest {
 
   @Mock private BookRepository repo;
+  @Mock private com.axel.pennywise.domain.user.UserRepository userRepo;
   @Mock private CategoryService categoryService;
   @Mock private CacheEvictionService cacheEvictionService;
 
@@ -65,7 +66,9 @@ class BookServiceTest {
 
     when(repo.save(any(BookEntity.class))).thenReturn(saved);
 
+    when(userRepo.lockActiveById(userId)).thenReturn(Optional.of(user));
     BookEntity result = bookService.create(user, "My Book", "USD", "UTC", 5000L);
+    verify(repo).findAllByOwner_IdAndDeletedAtIsNull(userId);
 
     assertSame(saved, result);
 
