@@ -13,5 +13,9 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
 
   Optional<UserEntity> findByAuthSubjectAndDeletedAtIsNull(String authSubject);
 
+  Optional<UserEntity> findByGoogleSubAndDeletedAtIsNull(String googleSub);
+
+  boolean existsByEmailAndDeletedAtIsNull(String email);
+
   boolean existsByAuthSubjectAndDeletedAtIsNull(String authSubject);
 }
