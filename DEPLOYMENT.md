@@ -5,24 +5,25 @@ application serves every endpoint under the `/api` context path.
 
 ## Environment variables
 
-| Variable                           | Required in production | Default                                                                   | Description                                                                                                                                                                                            |
-| ---------------------------------- | ---------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ENV`                              | Yes                    | `local`                                                                   | Runtime environment. Use `production` on Render or another host. Authentication defaults to disabled only when this is `local`; it defaults to enabled for every other value.                          |
-| `PORT`                             | No                     | `8080`                                                                    | HTTP port. Render and similar platforms inject this value.                                                                                                                                             |
-| `JDBC_URL`                         | Yes                    | `jdbc:postgresql://localhost:5432/postgres?currentSchema=expense_tracker` | PostgreSQL JDBC URL. For Supabase, use the JDBC form of its connection string, retain its required SSL options, and set `currentSchema=expense_tracker`.                                               |
-| `DB_USERNAME`                      | Yes                    | `postgres`                                                                | PostgreSQL user.                                                                                                                                                                                       |
-| `DB_PASSWORD`                      | Yes                    | `postgres`                                                                | PostgreSQL password.                                                                                                                                                                                   |
-| `DB_POOL_MAX`                      | No                     | `3`                                                                       | Maximum Hikari connection-pool size.                                                                                                                                                                   |
-| `DB_POOL_MIN`                      | No                     | `0`                                                                       | Minimum number of idle Hikari connections.                                                                                                                                                             |
-| `APP_SECURITY_AUTH_ENABLED`        | No                     | blank/automatic                                                           | Optional explicit authentication switch; only `true`, `false`, or blank are accepted. Blank means disabled for `ENV=local` and enabled otherwise. Do not set this to `false` in production.            |
-| `APP_JWT_LOCAL_SECRET`             | Yes                    | local development value                                                   | Secret used to sign and verify the service's HS256 access tokens. Production startup rejects the committed local-development value. Supply at least 32 random bytes through the host's secret manager. |
-| `APP_JWT_ISSUER`                   | No                     | `pennywise`                                                               | Issuer written to and required on locally issued access tokens.                                                                                                                                        |
-| `APP_JWT_ACCESS_TOKEN_TTL_MINUTES` | No                     | `60`                                                                      | Access-token lifetime in minutes.                                                                                                                                                                      |
-| `APP_JWT_AUDIENCE`                 | No                     | blank                                                                     | Optional required JWT audience. When set, locally issued tokens include this audience and the API validates it.                                                                                        |
-| `APP_JWT_ISSUER_URI`               | No; leave unset        | blank                                                                     | External OAuth issuer discovery URL. **Leave this unset for Pennywise signup/login.** Setting it switches token decoding to the external issuer.                                                       |
-| `SPRINGDOC_API_DOCS_ENABLED`       | No                     | `true`                                                                    | Enables generated OpenAPI JSON. Set to `false` in production if it is not needed.                                                                                                                      |
-| `SPRINGDOC_SWAGGER_UI_ENABLED`     | No                     | `true`                                                                    | Enables Swagger UI. Set to `false` in production if it is not needed.                                                                                                                                  |
-| `APP_EXPORT_BUCKET`                | No                     | blank                                                                     | Reserved export storage bucket. CSV export remains disabled for v1.                                                                                                                                    |
+| Variable                           | Required in production | Default                                                                   | Description                                                                                                                                                                                                |
+| ---------------------------------- | ---------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ENV`                              | Yes                    | `local`                                                                   | Runtime environment. Use `production` on Render or another host. Authentication defaults to disabled only when this is `local`; it defaults to enabled for every other value.                              |
+| `PORT`                             | No                     | `8080`                                                                    | HTTP port. Render and similar platforms inject this value.                                                                                                                                                 |
+| `JDBC_URL`                         | Yes                    | `jdbc:postgresql://localhost:5432/postgres?currentSchema=expense_tracker` | PostgreSQL JDBC URL. For Supabase, use the JDBC form of its connection string, retain its required SSL options, and set `currentSchema=expense_tracker`.                                                   |
+| `DB_USERNAME`                      | Yes                    | `postgres`                                                                | PostgreSQL user.                                                                                                                                                                                           |
+| `DB_PASSWORD`                      | Yes                    | `postgres`                                                                | PostgreSQL password.                                                                                                                                                                                       |
+| `DB_POOL_MAX`                      | No                     | `3`                                                                       | Maximum Hikari connection-pool size.                                                                                                                                                                       |
+| `DB_POOL_MIN`                      | No                     | `0`                                                                       | Minimum number of idle Hikari connections.                                                                                                                                                                 |
+| `APP_SECURITY_AUTH_ENABLED`        | No                     | blank/automatic                                                           | Optional explicit authentication switch; only `true`, `false`, or blank are accepted. Blank means disabled for `ENV=local` and enabled otherwise. Do not set this to `false` in production.                |
+| `APP_JWT_LOCAL_SECRET`             | Yes                    | local development value                                                   | Secret used to sign and verify the service's HS256 access tokens. Production startup rejects the committed local-development value. Supply at least 32 random bytes through the host's secret manager.     |
+| `APP_JWT_ISSUER`                   | No                     | `pennywise`                                                               | Issuer written to and required on locally issued access tokens.                                                                                                                                            |
+| `APP_JWT_ACCESS_TOKEN_TTL_MINUTES` | No                     | `60`                                                                      | Access-token lifetime in minutes.                                                                                                                                                                          |
+| `APP_JWT_AUDIENCE`                 | No                     | blank                                                                     | Optional required JWT audience. When set, locally issued tokens include this audience and the API validates it.                                                                                            |
+| `APP_JWT_ISSUER_URI`               | No; leave unset        | blank                                                                     | External OAuth issuer discovery URL. **Leave this unset for Pennywise signup/login.** Setting it switches token decoding to the external issuer.                                                           |
+| `GOOGLE_CLIENT_IDS`                | No                     | blank                                                                     | Comma-separated Google OAuth client IDs (web, plus iOS if used) whose ID tokens `/v1/auth/google` accepts. Blank disables Google sign-in (the endpoints return 503). See the Google Sign-In section below. |
+| `SPRINGDOC_API_DOCS_ENABLED`       | No                     | `true`                                                                    | Enables generated OpenAPI JSON. Set to `false` in production if it is not needed.                                                                                                                          |
+| `SPRINGDOC_SWAGGER_UI_ENABLED`     | No                     | `true`                                                                    | Enables Swagger UI. Set to `false` in production if it is not needed.                                                                                                                                      |
+| `APP_EXPORT_BUCKET`                | No                     | blank                                                                     | Reserved export storage bucket. CSV export remains disabled for v1.                                                                                                                                        |
 
 Real database credentials and JWT secrets must be host environment variables. Do not put
 them in this repository or bake them into an image. Keep `APP_JWT_ISSUER_URI` blank when
@@ -32,6 +33,51 @@ Flyway creates the `expense_tracker` schema and applies the immutable V1 through
 migrations. Hibernate then validates the entity mappings rather than altering the schema.
 There is intentionally no V5: the proposed second V4 contained no statements that were not
 already in V4, so it was removed before any deployment.
+
+## Google Sign-In
+
+Users can log in with their own Google account in addition to email and password. The mobile
+app gets a Google ID token from the native Google Sign-In SDK and sends it to
+`POST /api/v1/auth/google`; the backend verifies it and returns the normal Pennywise bearer
+token. No Google client secret is stored on the server, only the public client IDs.
+
+### One-time setup
+
+1. Open the [Google Cloud console](https://console.cloud.google.com), and create a project
+   (or pick an existing one) for Pennywise.
+2. Go to **Google Auth Platform** (older console: **APIs & Services**, **OAuth consent
+   screen**). Set the app name and support email, choose **External**, and keep the default
+   scopes (`openid`, `email`, `profile`). While the publishing status is **Testing**, only
+   accounts listed as **Test users** can sign in. Click **Publish app** so anyone can. These
+   basic scopes need no Google verification review.
+3. Go to **Clients** (older console: **Credentials**, **Create credentials**, **OAuth client
+   ID**) and create:
+   - **Web application** client. Its client ID is the one the mobile SDK is configured with
+     as `webClientId`, which makes it the audience of the ID token. No redirect URI is needed.
+   - **Android** client: the app's package name and the SHA-1 fingerprint of the certificate
+     that signs the build. The debug keystore, the EAS build credentials, and the Play App
+     Signing certificate each have a different SHA-1, so register every one you use.
+   - **iOS** client, if you ship on iOS: the app's bundle ID.
+4. In the Render dashboard, open the service, **Environment**, and add
+   `GOOGLE_CLIENT_IDS` set to the web client ID, plus the iOS client ID if used, separated by a
+   comma (no secrets are involved). Save; Render redeploys.
+5. Check it: `curl -X POST https://<your-service>/api/v1/auth/google -H 'Content-Type:
+application/json' -d '{"idToken":"x"}'`. A `401` with code `GOOGLE_TOKEN_INVALID` means the
+   server is configured. A `503` with `GOOGLE_SIGN_IN_NOT_CONFIGURED` means
+   `GOOGLE_CLIENT_IDS` is missing or blank.
+6. In the mobile repository (not part of this change), add the native Google Sign-In
+   library, configure it with the web client ID, and send the returned `idToken` to
+   `/v1/auth/google`.
+
+### Account rules
+
+- A new Google user gets a new account with no password.
+- If the Google email already belongs to an email and password account, Google login is
+  refused with `409 GOOGLE_ACCOUNT_LINK_REQUIRED` and nothing is merged automatically, because
+  signup does not verify email ownership. The owner logs in with their password and calls
+  `POST /api/v1/auth/google/link` with a Google ID token to attach Google to that account.
+- After linking, either login method reaches the same account and data.
+- Signup rejects an email that any account already uses, including a Google account.
 
 ## Local Docker run
 

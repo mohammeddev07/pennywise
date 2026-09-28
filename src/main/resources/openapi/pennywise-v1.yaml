@@ -74,6 +74,72 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /v1/auth/google:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Log in or sign up with a Google ID token
+      description: >-
+        The app obtains a Google ID token with the native Google Sign-In SDK and sends it here. The
+        server verifies it (signature, issuer, audience = configured client IDs, expiry, verified
+        email) and returns the same bearer JWT as `/v1/auth/login`. A first-time Google user gets a
+        new account with no password. If the Google email already belongs to an email/password
+        account the accounts are NOT merged: the response is 409 `GOOGLE_ACCOUNT_LINK_REQUIRED`
+        and the user must log in with their password and call `/v1/auth/google/link`. Returns 503
+        `GOOGLE_SIGN_IN_NOT_CONFIGURED` when the server has no client IDs configured.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GoogleAuthRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: Invalid Google token (`GOOGLE_TOKEN_INVALID`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503":
+          description: Google sign-in is not configured (`GOOGLE_SIGN_IN_NOT_CONFIGURED`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /v1/auth/google/link:
+    post:
+      tags: [Auth]
+      summary: Link a Google account to the logged-in user
+      description: >-
+        Requires a bearer token. Idempotent for the same Google account. 409
+        `GOOGLE_ACCOUNT_ALREADY_LINKED` if that Google account belongs to another user or this user
+        is already linked to a different Google account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GoogleAuthRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MeResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503":
+          description: Google sign-in is not configured (`GOOGLE_SIGN_IN_NOT_CONFIGURED`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   /v1/me:
     get:
       tags: [Users]
@@ -942,6 +1008,16 @@ components:
         password: { type: string, minLength: 8, maxLength: 128 }
         defaultCurrencyCode: { type: string, pattern: "^[A-Za-z]{3}$", example: "USD" }
 
+    GoogleAuthRequest:
+      type: object
+      required: [idToken]
+      properties:
+        idToken:
+          {
+            type: string,
+            maxLength: 4096,
+            description: Google ID token from the native sign-in SDK
+          }
     LoginRequest:
       type: object
       required: [email, password]

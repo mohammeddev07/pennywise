@@ -114,7 +114,9 @@ public class SecurityConfig {
 
     http.authorizeHttpRequests(
         auth ->
-            auth.requestMatchers(
+            auth.requestMatchers("/v1/auth/google/link")
+                .authenticated()
+                .requestMatchers(
                     "/actuator/health/**",
                     "/actuator/info",
                     "/v3/api-docs/**",
