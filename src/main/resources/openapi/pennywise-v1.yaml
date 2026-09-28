@@ -959,7 +959,10 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
     TooManyRequests:
-      description: Too Many Requests
+      description: >-
+        Too Many Requests. Any endpoint can return this with code `RATE_LIMITED` when the caller's
+        token bucket is empty (per user, or per client IP for `/v1/auth/**`) or the global bucket
+        is; the AI filter endpoint also has its own codes.
       headers:
         Retry-After:
           description: Seconds until the client may retry.
