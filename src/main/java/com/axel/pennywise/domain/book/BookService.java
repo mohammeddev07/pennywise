@@ -102,23 +102,6 @@ public class BookService {
     }
   }
 
-  @Transactional
-  public BookEntity updateName(BookEntity book, String newName) {
-    book.setName(newName);
-    BookEntity saved = repo.save(book);
-    cacheEvictionService.evictBooks(saved.getOwner().getId());
-    return saved;
-  }
-
-  @Transactional
-  public void softDelete(BookEntity book) {
-    if (book.getDeletedAt() == null) {
-      book.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
-    }
-    repo.save(book);
-    cacheEvictionService.evictBooks(book.getOwner().getId());
-  }
-
   public record WithBalance(BookEntity book, long balanceMinor) {}
 
   /**

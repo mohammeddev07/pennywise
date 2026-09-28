@@ -101,25 +101,6 @@ class BookServiceTest {
   }
 
   @Test
-  void updateName_setsNameAndSaves() {
-    BookEntity existing = new BookEntity();
-    existing.setId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
-    existing.setName("Old");
-    existing.setOwner(user);
-
-    when(repo.save(existing)).thenReturn(existing);
-
-    BookEntity result = bookService.updateName(existing, "New Name");
-
-    assertSame(existing, result);
-    assertEquals("New Name", existing.getName());
-
-    verify(repo).save(existing);
-    verify(cacheEvictionService).evictBooks(userId);
-    verifyNoMoreInteractions(repo, categoryService, cacheEvictionService);
-  }
-
-  @Test
   void requireOwned_returnsBookWhenFound() {
     UUID bookId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     BookEntity found = new BookEntity();

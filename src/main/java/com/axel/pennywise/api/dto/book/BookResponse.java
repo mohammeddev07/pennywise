@@ -12,4 +12,8 @@ public record BookResponse(
     OffsetDateTime createdAt,
     OffsetDateTime updatedAt,
     OffsetDateTime deletedAt,
-    long version) {}
+    long version,
+    String icon,
+    String color,
+    long sortOrder,
+    long balanceMinor) {}
