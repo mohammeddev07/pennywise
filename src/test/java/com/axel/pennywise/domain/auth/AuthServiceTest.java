@@ -20,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -53,7 +54,8 @@ class AuthServiceTest {
   @Test
   void signup_normalizesEmailHashesPasswordAndReturnsToken() {
     when(userRepo.existsByAuthSubjectAndDeletedAtIsNull("local:mak@example.com")).thenReturn(false);
-    when(userRepo.save(any(UserEntity.class))).thenAnswer(inv -> savedUser(inv.getArgument(0)));
+    when(userRepo.saveAndFlush(any(UserEntity.class)))
+        .thenAnswer(inv -> savedUser(inv.getArgument(0)));
 
     AuthResponse response = service.signup(" Mak@Example.COM ", "password123", "usd");
 
@@ -63,7 +65,7 @@ class AuthServiceTest {
     assertEquals("USD", response.user().defaultCurrencyCode());
 
     ArgumentCaptor<UserEntity> captor = ArgumentCaptor.forClass(UserEntity.class);
-    verify(userRepo).save(captor.capture());
+    verify(userRepo).saveAndFlush(captor.capture());
     UserEntity saved = captor.getValue();
     assertEquals("local:mak@example.com", saved.getAuthSubject());
     assertTrue(passwordEncoder.matches("password123", saved.getPasswordHash()));
@@ -91,14 +93,14 @@ class AuthServiceTest {
 
   @Test
   void signup_rejectsEmailAlreadyUsedByAGoogleAccount() {
-    when(userRepo.existsByEmailAndDeletedAtIsNull("mak@example.com")).thenReturn(true);
+    when(userRepo.existsActiveByEmail("mak@example.com")).thenReturn(true);
 
     ApiException ex =
         assertThrows(
             ApiException.class, () -> service.signup("mak@example.com", "password123", null));
 
     assertEquals("EMAIL_ALREADY_REGISTERED", ex.code());
-    verify(userRepo, never()).save(any());
+    verify(userRepo, never()).saveAndFlush(any());
   }
 
   @Test
@@ -106,17 +108,42 @@ class AuthServiceTest {
     when(googleVerifier.verify("tok"))
         .thenReturn(new GoogleTokenVerifier.GoogleIdentity("g-123", "Mak@Example.com"));
     when(userRepo.findByGoogleSubAndDeletedAtIsNull("g-123")).thenReturn(Optional.empty());
-    when(userRepo.existsByEmailAndDeletedAtIsNull("mak@example.com")).thenReturn(false);
-    when(userRepo.save(any(UserEntity.class))).thenAnswer(inv -> savedUser(inv.getArgument(0)));
+    when(userRepo.existsActiveByEmail("mak@example.com")).thenReturn(false);
+    when(userRepo.saveAndFlush(any(UserEntity.class)))
+        .thenAnswer(inv -> savedUser(inv.getArgument(0)));
 
     AuthResponse response = service.googleLogin("tok");
 
     assertEquals("mak@example.com", response.user().email());
     ArgumentCaptor<UserEntity> captor = ArgumentCaptor.forClass(UserEntity.class);
-    verify(userRepo).save(captor.capture());
+    verify(userRepo).saveAndFlush(captor.capture());
     assertEquals("google:g-123", captor.getValue().getAuthSubject());
     assertEquals("g-123", captor.getValue().getGoogleSub());
     assertNull(captor.getValue().getPasswordHash());
+  }
+
+  @Test
+  void signup_turnsALostEmailRaceIntoAConflict() {
+    when(userRepo.saveAndFlush(any(UserEntity.class)))
+        .thenThrow(new DataIntegrityViolationException("uq_users_email_active"));
+
+    ApiException ex =
+        assertThrows(
+            ApiException.class, () -> service.signup("mak@example.com", "password123", null));
+
+    assertEquals("EMAIL_ALREADY_REGISTERED", ex.code());
+  }
+
+  @Test
+  void googleLogin_turnsALostEmailRaceIntoLinkRequired() {
+    when(googleVerifier.verify("tok"))
+        .thenReturn(new GoogleTokenVerifier.GoogleIdentity("g-123", "mak@example.com"));
+    when(userRepo.saveAndFlush(any(UserEntity.class)))
+        .thenThrow(new DataIntegrityViolationException("uq_users_email_active"));
+
+    ApiException ex = assertThrows(ApiException.class, () -> service.googleLogin("tok"));
+
+    assertEquals("GOOGLE_ACCOUNT_LINK_REQUIRED", ex.code());
   }
 
   @Test
@@ -132,7 +159,7 @@ class AuthServiceTest {
     AuthResponse response = service.googleLogin("tok");
 
     assertEquals(user.getId(), response.user().id());
-    verify(userRepo, never()).save(any());
+    verify(userRepo, never()).saveAndFlush(any());
   }
 
   @Test
@@ -140,12 +167,12 @@ class AuthServiceTest {
     when(googleVerifier.verify("tok"))
         .thenReturn(new GoogleTokenVerifier.GoogleIdentity("g-123", "mak@example.com"));
     when(userRepo.findByGoogleSubAndDeletedAtIsNull("g-123")).thenReturn(Optional.empty());
-    when(userRepo.existsByEmailAndDeletedAtIsNull("mak@example.com")).thenReturn(true);
+    when(userRepo.existsActiveByEmail("mak@example.com")).thenReturn(true);
 
     ApiException ex = assertThrows(ApiException.class, () -> service.googleLogin("tok"));
 
     assertEquals("GOOGLE_ACCOUNT_LINK_REQUIRED", ex.code());
-    verify(userRepo, never()).save(any());
+    verify(userRepo, never()).saveAndFlush(any());
   }
 
   @Test

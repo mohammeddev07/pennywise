@@ -15,7 +15,12 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
 
   Optional<UserEntity> findByGoogleSubAndDeletedAtIsNull(String googleSub);
 
-  boolean existsByEmailAndDeletedAtIsNull(String email);
+  /** Case-insensitive: external-issuer users store the email claim verbatim. */
+  @org.springframework.data.jpa.repository.Query(
+      "select count(u) > 0 from UserEntity u where lower(u.email) = lower(:email)"
+          + " and u.deletedAt is null")
+  boolean existsActiveByEmail(
+      @org.springframework.data.repository.query.Param("email") String email);
 
   boolean existsByAuthSubjectAndDeletedAtIsNull(String authSubject);
 }
