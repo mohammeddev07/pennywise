@@ -40,7 +40,7 @@ class BookMigrationTest {
         INSERT INTO expense_tracker.books(id,owner_user_id,name,currency_code,timezone,opening_balance_minor,created_at,updated_at,version,deleted_at)
         SELECT ('10000000-0000-0000-0000-' || lpad(i::text,12,'0'))::uuid,
           ('00000000-0000-0000-0000-' || lpad((1 + (i-1)/3)::text,12,'0'))::uuid,
-          'Book ' || i,'USD','UTC',i*100,'2020-01-01','2020-02-01',7,
+          'Book ' || i,'USD','UTC',i*100,CASE WHEN i=3 THEN '2019-01-01'::timestamptz ELSE '2020-01-01'::timestamptz END,'2020-02-01',7,
           CASE WHEN i=3 THEN '2020-03-01'::timestamptz ELSE NULL END
         FROM generate_series(1,6) i
         """);
@@ -76,7 +76,7 @@ class BookMigrationTest {
           children.get(i), jdbc.queryForList("SELECT * FROM expense_tracker." + tables.get(i)));
     }
     assertEquals(
-        List.of(0L, 1L, 2L, 0L, 1L, 2L),
+        List.of(1L, 2L, 0L, 0L, 1L, 2L),
         jdbc.queryForList("SELECT sort_order FROM expense_tracker.books ORDER BY id", Long.class));
     assertEquals(
         6,
@@ -94,10 +94,18 @@ class BookMigrationTest {
             "SELECT count(*) FROM expense_tracker.books WHERE name='Legacy' AND icon='book' AND"
                 + " color='green' AND sort_order=0",
             Integer.class));
+    jdbc.execute(
+        """
+        INSERT INTO expense_tracker.books(owner_user_id,name,currency_code,timezone,created_at)
+        SELECT '00000000-0000-0000-0000-000000000001','Plan ' || i,'USD','UTC',
+          '2020-01-01'::timestamptz + i * interval '1 second'
+        FROM generate_series(1,10000) i
+        """);
+    jdbc.execute("ANALYZE expense_tracker.books");
     var plan =
         jdbc.queryForList(
-            "EXPLAIN SELECT id,row_number() OVER (PARTITION BY owner_user_id ORDER BY"
-                + " created_at,id)-1 FROM expense_tracker.books",
+            "EXPLAIN (ANALYZE, BUFFERS) SELECT id,row_number() OVER (PARTITION BY owner_user_id"
+                + " ORDER BY created_at,id)-1 FROM expense_tracker.books",
             String.class);
     System.out.println("Book backfill ranking plan: " + plan);
     assertTrue(plan.stream().anyMatch(line -> line.contains("WindowAgg")));

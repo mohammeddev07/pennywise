@@ -1028,7 +1028,20 @@ components:
     BookResponse:
       type: object
       required:
-        [id, name, currencyCode, timezone, openingBalanceMinor, createdAt, updatedAt, version, icon, color, sortOrder, balanceMinor]
+        [
+          id,
+          name,
+          currencyCode,
+          timezone,
+          openingBalanceMinor,
+          createdAt,
+          updatedAt,
+          version,
+          icon,
+          color,
+          sortOrder,
+          balanceMinor
+        ]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }

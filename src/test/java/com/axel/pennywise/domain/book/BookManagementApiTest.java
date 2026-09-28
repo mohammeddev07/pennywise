@@ -368,4 +368,269 @@ class BookManagementApiTest extends AbstractPostgresIT {
         .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
     assertEquals(owned.get("id"), list().get(0).get("id"));
   }
+
+  @Test
+  void deletedAndForeignBooksBlockAllFinancialEndpointsButRetainData() throws Exception {
+    var a = create(100);
+    var b = create(200);
+    mvc.perform(multipart(path(a) + "/transactions/import").file(importFile()).with(auth()))
+        .andExpect(status().isOk());
+    UUID id = UUID.fromString(a.get("id").asText());
+    UUID category =
+        jdbc.queryForObject(
+            "select id from expense_tracker.categories where book_id=? and type='EXPENSE' limit 1",
+            UUID.class,
+            id);
+    UUID tx =
+        jdbc.queryForObject(
+            "select id from expense_tracker.transactions where book_id=?", UUID.class, id);
+    jdbc.update(
+        "insert into expense_tracker.budgets(book_id,category_id,month_start,amount_minor) values"
+            + " (?,?,'2026-01-01',1000)",
+        id,
+        category);
+    warm(a);
+    String owner = subject;
+    subject = "stranger-" + UUID.randomUUID();
+    inaccessible(a, tx, category);
+    subject = owner;
+    mvc.perform(delete(path(a)).with(auth()).header("If-Match", "0"))
+        .andExpect(status().isNoContent());
+    inaccessible(a, tx, category);
+    mvc.perform(delete(path(a)).with(auth()).header("If-Match", "0"))
+        .andExpect(status().isNotFound());
+    for (String table : List.of("transactions", "categories", "budgets")) {
+      assertTrue(
+          jdbc.queryForObject(
+                  "select count(*) from expense_tracker."
+                      + table
+                      + " where book_id=? and deleted_at is null",
+                  Integer.class,
+                  id)
+              > 0);
+    }
+    assertEquals(b.get("id"), list().get(0).get("id"));
+    mvc.perform(get(path(b) + "/balance").with(auth()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.balanceMinor").value(200));
+    mvc.perform(get("/v1/me").with(auth())).andExpect(status().isOk());
+  }
+
+  void inaccessible(JsonNode book, UUID tx, UUID category) throws Exception {
+    for (String suffix :
+        List.of(
+            "",
+            "/transactions",
+            "/transactions/" + tx,
+            "/categories",
+            "/budgets?month=2026-01",
+            "/balance",
+            "/summary/monthly?month=2026-01",
+            "/summary/range?startDate=2026-01-01&endDate=2026-01-31",
+            "/transactions/export")) {
+      mvc.perform(get(path(book) + suffix).with(auth()))
+          .andExpect(status().isNotFound())
+          .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    }
+    for (String suffix :
+        List.of("/transactions/search", "/transactions/analyze", "/transactions/export/query")) {
+      mvc.perform(
+              post(path(book) + suffix)
+                  .with(auth())
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{}"))
+          .andExpect(status().isNotFound())
+          .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    }
+    mvc.perform(
+            post(path(book) + "/filter-proposals")
+                .with(auth())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"text\":\"food last month\"}"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    mvc.perform(multipart(path(book) + "/transactions/import").file(importFile()).with(auth()))
+        .andExpect(status().isNotFound());
+    mvc.perform(
+            post(path(book) + "/transactions")
+                .with(auth())
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    om.writeValueAsString(
+                        Map.of(
+                            "type",
+                            "EXPENSE",
+                            "amountMinor",
+                            10,
+                            "occurredOn",
+                            "2026-01-01",
+                            "categoryId",
+                            category.toString()))))
+        .andExpect(status().isNotFound());
+    mvc.perform(
+            patch(path(book) + "/transactions/" + tx)
+                .with(auth())
+                .header("If-Match", "0")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amountMinor\":20}"))
+        .andExpect(status().isNotFound());
+    mvc.perform(delete(path(book) + "/transactions/" + tx).with(auth()).header("If-Match", "0"))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void openingBalanceIsExcludedFromSummariesAnalysisAndBothExports() throws Exception {
+    var b = create(50000);
+    for (String suffix :
+        List.of(
+            "/summary/monthly?month=2026-01",
+            "/summary/range?startDate=2026-01-01&endDate=2026-01-31")) {
+      mvc.perform(get(path(b) + suffix).with(auth()))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.incomeTotalMinor").value(0))
+          .andExpect(jsonPath("$.expenseTotalMinor").value(0));
+    }
+    mvc.perform(
+            post(path(b) + "/transactions/analyze")
+                .with(auth())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"bucket\":\"DAY\",\"window\":{\"startDate\":\"2026-01-01\",\"endDate\":\"2026-01-31\"}}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.matchedCount").value(0))
+        .andExpect(jsonPath("$.netMinor").value(0));
+    var export = mvc.perform(get(path(b) + "/transactions/export").with(auth())).andReturn();
+    if (export.getRequest().isAsyncStarted())
+      export = mvc.perform(asyncDispatch(export)).andExpect(status().isOk()).andReturn();
+    assertHeaderOnly(export.getResponse().getContentAsByteArray());
+    var filtered =
+        mvc.perform(
+                post(path(b) + "/transactions/export/query")
+                    .with(auth())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}"))
+            .andExpect(status().isOk())
+            .andReturn();
+    assertHeaderOnly(filtered.getResponse().getContentAsByteArray());
+    mvc.perform(multipart(path(b) + "/transactions/import").file(importFile()).with(auth()))
+        .andExpect(status().isOk());
+    assertBalance(b, 50250);
+    mvc.perform(get(path(b) + "/summary/monthly?month=2026-01").with(auth()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.incomeTotalMinor").value(250))
+        .andExpect(jsonPath("$.expenseTotalMinor").value(0));
+  }
+
+  void assertHeaderOnly(byte[] bytes) throws Exception {
+    try (var workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(bytes))) {
+      assertEquals(0, workbook.getSheetAt(0).getLastRowNum());
+    }
+  }
+
+  @Test
+  void signupStillCreatesNoBookAndDeletionDoesNotAffectLogin() throws Exception {
+    String email = "books-" + UUID.randomUUID() + "@example.com";
+    String credentials =
+        om.writeValueAsString(Map.of("email", email, "password", "Strong-password-123!"));
+    mvc.perform(
+            post("/v1/auth/signup").contentType(MediaType.APPLICATION_JSON).content(credentials))
+        .andExpect(status().isCreated());
+    subject = "local:" + email;
+    assertEquals(0, list().size());
+    var a = create(0);
+    create(0);
+    mvc.perform(delete(path(a)).with(auth()).header("If-Match", "0"))
+        .andExpect(status().isNoContent());
+    mvc.perform(post("/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(credentials))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.accessToken").isString());
+    assertEquals(1, list().size());
+  }
+
+  @Test
+  void reorderFailureResponsesAreAtomicAndCapIsExplicit() throws Exception {
+    var a = create(0);
+    var b = create(0);
+    for (List<String> ids :
+        List.of(
+            List.<String>of(),
+            List.of(a.get("id").asText()),
+            List.of(a.get("id").asText(), a.get("id").asText()),
+            List.of(a.get("id").asText(), b.get("id").asText(), UUID.randomUUID().toString()))) {
+      mvc.perform(
+              put("/v1/books/order")
+                  .with(auth())
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(om.writeValueAsString(Map.of("bookIds", ids))))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+      assertEquals(a.get("id"), list().get(0).get("id"));
+    }
+    for (int i = 2; i < 10; i++) create(0);
+    mvc.perform(
+            post("/v1/books")
+                .with(auth())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Book\",\"currencyCode\":\"USD\",\"timezone\":\"UTC\"}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error.code").value("BOOK_LIMIT_REACHED"));
+  }
+
+  @Test
+  void allStylesWorkThroughCreateAndPatchAndInvalidPatchIsAtomic() throws Exception {
+    JsonNode current = null;
+    for (int i = 0; i < BookStyles.ICONS.size(); i++) {
+      String icon = BookStyles.ICONS.get(i);
+      String color = BookStyles.COLORS.get(i % BookStyles.COLORS.size());
+      current =
+          response(
+              mvc.perform(
+                      post("/v1/books")
+                          .with(auth())
+                          .contentType(MediaType.APPLICATION_JSON)
+                          .content(
+                              om.writeValueAsString(
+                                  Map.of(
+                                      "name",
+                                      "x".repeat(80),
+                                      "currencyCode",
+                                      "USD",
+                                      "timezone",
+                                      "UTC",
+                                      "icon",
+                                      icon,
+                                      "color",
+                                      color))))
+                  .andExpect(status().isCreated())
+                  .andExpect(jsonPath("$.icon").value(icon))
+                  .andExpect(jsonPath("$.color").value(color)));
+    }
+    for (String field : List.of("icon", "color")) {
+      mvc.perform(
+              patch(path(current))
+                  .with(auth())
+                  .header("If-Match", current.get("version").asText())
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(
+                      om.writeValueAsString(Map.of("name", "Must not persist", field, "unknown"))))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+    mvc.perform(get(path(current)).with(auth()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("x".repeat(80)));
+    current = patchBook(current, "{\"name\":\"  Rename  \",\"icon\":null,\"color\":null}");
+    assertEquals("Rename", current.get("name").asText());
+    assertEquals("cart", current.get("icon").asText());
+    for (String body : List.of("{}", "{\"bookIds\":null}", "{\"bookIds\":[null]}")) {
+      mvc.perform(
+              put("/v1/books/order")
+                  .with(auth())
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(body))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+  }
 }

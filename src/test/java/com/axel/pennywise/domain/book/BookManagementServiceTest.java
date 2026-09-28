@@ -211,6 +211,25 @@ class BookManagementServiceTest extends AbstractPostgresIT {
     assertEquals(2, service.listWithBalances(user).size());
   }
 
+  @Test
+  void reorderBeforeMembershipChangesSucceedsWithoutPartialState() throws Exception {
+    var a = create(0);
+    var b = create(0);
+    orderedRace(() -> service.reorder(user, List.of(b.getId(), a.getId())), () -> create(0));
+    var listed = service.listWithBalances(user);
+    assertEquals(
+        List.of(b.getId(), a.getId()),
+        listed.subList(0, 2).stream().map(x -> x.book().getId()).toList());
+    var c = listed.get(2).book();
+    orderedRace(
+        () -> service.reorder(user, List.of(c.getId(), b.getId(), a.getId())),
+        () -> service.delete(user, a.getId(), service.requireOwned(a.getId(), user).getVersion()));
+    assertEquals(
+        List.of(c.getId(), b.getId()),
+        service.listWithBalances(user).stream().map(x -> x.book().getId()).toList());
+    error("ETAG_MISMATCH", () -> service.update(user, b.getId(), 0, "Stale", null, null));
+  }
+
   void orderedRace(Runnable first, Runnable second) throws Exception {
     var locked = new CountDownLatch(1);
     var attempted = new CountDownLatch(1);
