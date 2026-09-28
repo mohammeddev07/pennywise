@@ -25,11 +25,29 @@ class BookContractTest {
     assertEquals(BookStyles.COLORS, map(schemas.get("BookColor")).get("enum"));
     assertEquals(BookStyles.DEFAULT_ICON, map(schemas.get("BookIcon")).get("default"));
     assertEquals(BookStyles.DEFAULT_COLOR, map(schemas.get("BookColor")).get("default"));
-    for (String name : List.of("BookCreateRequest", "BookUpdateRequest", "BookResponse")) {
+    var props = map(map(schemas.get("BookResponse")).get("properties"));
+    assertEquals("#/components/schemas/BookIcon", map(props.get("icon")).get("$ref"));
+    assertEquals("#/components/schemas/BookColor", map(props.get("color")).get("$ref"));
+  }
+
+  @Test
+  void requestStylesAcceptExplicitNull() throws Exception {
+    var schemas = map(map(spec().get("components")).get("schemas"));
+    var icons = new ArrayList<Object>(BookStyles.ICONS);
+    icons.add(null);
+    var colors = new ArrayList<Object>(BookStyles.COLORS);
+    colors.add(null);
+    assertEquals(icons, map(schemas.get("BookIconInput")).get("enum"));
+    assertEquals(colors, map(schemas.get("BookColorInput")).get("enum"));
+    assertEquals(true, map(schemas.get("BookIconInput")).get("nullable"));
+    assertEquals(true, map(schemas.get("BookColorInput")).get("nullable"));
+    for (String name : List.of("BookCreateRequest", "BookUpdateRequest")) {
       var props = map(map(schemas.get(name)).get("properties"));
-      assertEquals("#/components/schemas/BookIcon", map(props.get("icon")).get("$ref"));
-      assertEquals("#/components/schemas/BookColor", map(props.get("color")).get("$ref"));
+      assertEquals("#/components/schemas/BookIconInput", map(props.get("icon")).get("$ref"));
+      assertEquals("#/components/schemas/BookColorInput", map(props.get("color")).get("$ref"));
     }
+    var update = map(map(schemas.get("BookUpdateRequest")).get("properties"));
+    assertEquals(true, map(update.get("name")).get("nullable"));
   }
 
   @Test

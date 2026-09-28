@@ -979,6 +979,18 @@ components:
         Approximate design references only (not validation values): green ~ #16A34A,
         purple ~ #8B5CF6, orange ~ #F97316, blue ~ #3B82F6, red ~ #EF4444, pink ~ #F472B6.
 
+    BookIconInput:
+      type: string
+      nullable: true
+      enum: [book, briefcase, airplane, home, car, heart, family, education, cart, null]
+      description: Request form of BookIcon. Null uses the default on create and leaves the value unchanged on update.
+
+    BookColorInput:
+      type: string
+      nullable: true
+      enum: [green, purple, orange, blue, red, pink, null]
+      description: Request form of BookColor. Null uses the default on create and leaves the value unchanged on update.
+
     BookOrderRequest:
       type: object
       required: [bookIds]
@@ -1015,15 +1027,15 @@ components:
             JavaScript clients. This recommendation is not a server-enforced cap.
             Very large values may overflow balance arithmetic. Opening balance is excluded
             from income/spending summaries and transaction-only import/export.
-        icon: { $ref: "#/components/schemas/BookIcon" }
-        color: { $ref: "#/components/schemas/BookColor" }
+        icon: { $ref: "#/components/schemas/BookIconInput" }
+        color: { $ref: "#/components/schemas/BookColorInput" }
 
     BookUpdateRequest:
       type: object
       properties:
-        name: { type: string, minLength: 1, maxLength: 80 }
-        icon: { $ref: "#/components/schemas/BookIcon" }
-        color: { $ref: "#/components/schemas/BookColor" }
+        name: { type: string, minLength: 1, maxLength: 80, nullable: true }
+        icon: { $ref: "#/components/schemas/BookIconInput" }
+        color: { $ref: "#/components/schemas/BookColorInput" }
 
     BookResponse:
       type: object
