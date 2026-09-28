@@ -1,19 +1,19 @@
 package com.axel.pennywise.api.controller;
 
 import com.axel.pennywise.api.dto.book.BookCreateRequest;
+import com.axel.pennywise.api.dto.book.BookOrderRequest;
 import com.axel.pennywise.api.dto.book.BookResponse;
 import com.axel.pennywise.api.dto.book.BookUpdateRequest;
 import com.axel.pennywise.api.dto.common.ItemsResponse;
 import com.axel.pennywise.domain.book.BookEntity;
 import com.axel.pennywise.domain.book.BookService;
-import com.axel.pennywise.domain.transaction.TransactionRepository;
+import com.axel.pennywise.domain.summary.SummaryService;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserService;
 import com.axel.pennywise.exception.ApiException;
 import com.axel.pennywise.security.CurrentUser;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +30,7 @@ public class BookController {
 
   private final UserService userService;
   private final BookService bookService;
-  private final TransactionRepository txRepo;
+  private final SummaryService summaryService;
 
   private static final String LOCAL = "local";
   private static final String LOG_USER_RESOLVED = "User resolved: userId={}";
@@ -43,7 +43,10 @@ public class BookController {
             auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
     log.debug(LOG_USER_RESOLVED, user.getId());
 
-    List<BookResponse> items = bookService.list(user).stream().map(this::toResponse).toList();
+    List<BookResponse> items =
+        bookService.listWithBalances(user).stream()
+            .map(row -> toResponse(row.book(), row.balanceMinor()))
+            .toList();
     log.info("Books listed: userId={}, count={}", user.getId(), items.size());
     return ResponseEntity.ok(new ItemsResponse<>(items));
   }
@@ -64,10 +67,18 @@ public class BookController {
 
     BookEntity b =
         bookService.create(
-            user, req.name(), req.currencyCode(), req.timezone(), req.openingBalanceMinor());
+            user,
+            req.name(),
+            req.currencyCode(),
+            req.timezone(),
+            req.openingBalanceMinor(),
+            req.icon(),
+            req.color());
     log.info("Book created: bookId={}, userId={}, name={}", b.getId(), user.getId(), b.getName());
 
-    return ResponseEntity.status(201).eTag(etag(b.getVersion())).body(toResponse(b));
+    return ResponseEntity.status(201)
+        .eTag(etag(b.getVersion()))
+        .body(toResponse(b, b.getOpeningBalanceMinor()));
   }
 
   @GetMapping("/{bookId}")
@@ -91,13 +102,13 @@ public class BookController {
       @Valid @RequestBody BookUpdateRequest req) {
     log.info("PATCH book: bookId={}, ifMatch={}", bookId, ifMatch);
 
-    if (req.name() == null) {
+    if (req.name() == null && req.icon() == null && req.color() == null) {
       throw new ApiException(
           HttpStatus.BAD_REQUEST,
           "VALIDATION_ERROR",
           "PATCH request must contain at least one field");
     }
-    if (req.name().isBlank()) {
+    if (req.name() != null && req.name().isBlank()) {
       throw new ApiException(
           HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Book name cannot be blank");
     }
@@ -107,13 +118,9 @@ public class BookController {
             auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
     log.debug(LOG_USER_RESOLVED, user.getId());
 
-    BookEntity b = bookService.requireOwned(bookId, user);
-
-    // Enforce optimistic concurrency
-    requireIfMatch(b, ifMatch);
-
-    // Apply changes (name only)
-    b = bookService.updateName(b, req.name().trim()); // persist + increment version
+    BookEntity b =
+        bookService.update(
+            user, bookId, parseEtagVersion(ifMatch), req.name(), req.icon(), req.color());
 
     return ResponseEntity.ok().eTag(etag(b.getVersion())).body(toResponse(b));
   }
@@ -128,21 +135,25 @@ public class BookController {
             auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
     log.debug(LOG_USER_RESOLVED, user.getId());
 
-    BookEntity b = bookService.requireOwned(bookId, user);
-    requireIfMatch(b, ifMatch);
+    bookService.delete(user, bookId, parseEtagVersion(ifMatch));
+    return ResponseEntity.noContent().build();
+  }
 
-    if (txRepo.existsByBook_IdAndDeletedAtIsNull(bookId)) {
-      throw new ApiException(
-          HttpStatus.CONFLICT,
-          "BOOK_HAS_TRANSACTIONS",
-          "Delete all transactions before deleting this book");
-    }
-
-    bookService.softDelete(b);
+  @PutMapping("/order")
+  public ResponseEntity<Void> reorder(
+      Authentication auth, @Valid @RequestBody BookOrderRequest req) {
+    UserEntity user =
+        userService.getOrCreate(
+            auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
+    bookService.reorder(user, req.bookIds());
     return ResponseEntity.noContent().build();
   }
 
   private BookResponse toResponse(BookEntity b) {
+    return toResponse(b, summaryService.balance(b).balanceMinor());
+  }
+
+  private BookResponse toResponse(BookEntity b, long balanceMinor) {
     return new BookResponse(
         b.getId(),
         b.getName(),
@@ -152,7 +163,11 @@ public class BookController {
         b.getCreatedAt(),
         b.getUpdatedAt(),
         b.getDeletedAt(),
-        b.getVersion() == null ? 0 : b.getVersion());
+        b.getVersion() == null ? 0 : b.getVersion(),
+        b.getIcon(),
+        b.getColor(),
+        b.getSortOrder(),
+        balanceMinor);
   }
 
   private String etag(Long version) {
@@ -178,18 +193,6 @@ public class BookController {
           org.springframework.http.HttpStatus.BAD_REQUEST,
           "INVALID_IF_MATCH",
           "Invalid If-Match value");
-    }
-  }
-
-  private void requireIfMatch(BookEntity b, String ifMatch) {
-    long expected = parseEtagVersion(ifMatch);
-    long actual = (b.getVersion() == null) ? 0L : b.getVersion();
-    if (expected != actual) {
-      throw new com.axel.pennywise.exception.ApiException(
-          org.springframework.http.HttpStatus.PRECONDITION_FAILED,
-          "ETAG_MISMATCH",
-          "Resource was modified. Re-fetch and retry.",
-          List.of(Map.of("expected", String.valueOf(expected), "actual", String.valueOf(actual))));
     }
   }
 }

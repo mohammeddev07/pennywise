@@ -90,6 +90,7 @@ paths:
     get:
       tags: [Books]
       summary: List books for current user
+      description: Active books ordered by sortOrder, creation time, then ID. Balances include opening balances and all active transactions, calculated together in one grouped query.
       responses:
         "200":
           description: OK
@@ -105,6 +106,11 @@ paths:
     post:
       tags: [Books]
       summary: Create book (currency locked)
+      description: >-
+        At most 10 active books may be created per user. Existing users above this limit retain
+        access but cannot create more. The limit returns 409 BOOK_LIMIT_REACHED.
+        Omitted or null icon/color use book/green. Unknown style keys return 400 VALIDATION_ERROR.
+        Creating a book seeds its default categories. Signup itself does not create a book.
       requestBody:
         required: true
         content:
@@ -121,6 +127,33 @@ paths:
               schema: { $ref: "#/components/schemas/BookResponse" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/books/order:
+    put:
+      tags: [Books]
+      summary: Replace the active book order
+      description: >-
+        Send every active owned book ID exactly once. The operation is atomic and serialized
+        with book create/update/delete for this user. The last successfully serialized reorder
+        wins; overlapping requests are not guaranteed to follow client send order.
+        If reorder runs first, it succeeds and the subsequent create/delete applies normally.
+        If create/delete runs first and the active-book count differs, reorder returns
+        400 VALIDATION_ERROR; refresh the list and retry. Duplicate IDs also return
+        400 VALIDATION_ERROR. With matching counts, foreign, unknown, or deleted IDs return
+        404 NOT_FOUND. Rejected requests never change any positions. Successful reorder may
+        advance versions of repositioned books; refresh before PATCH or DELETE.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookOrderRequest" }
+      responses:
+        "204":
+          description: Order persisted
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/books/{bookId}:
     parameters:
@@ -141,7 +174,13 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [Books]
-      summary: Update book (name only; currency locked)
+      summary: Update book name, icon, or color
+      description: >-
+        Currency, timezone, and opening balance are immutable through this endpoint.
+        Omitted or null fields are unchanged; at least one non-null writable field is required.
+        Names must be nonblank and at most 80 characters before trimming; rename preserves
+        the existing behavior of trimming surrounding whitespace. Creation does not trim.
+        Unknown style keys return 400 VALIDATION_ERROR. No-op updates retain the version.
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -158,8 +197,33 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/BookResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+    delete:
+      tags: [Books]
+      summary: Soft-delete a book and hide its financial data
+      description: >-
+        Marks the book deleted, including books with transactions. The book and its transactions,
+        categories, budgets, summaries, and exports become inaccessible through the API.
+        There is no recovery endpoint. Login/account access and other books are unaffected.
+        Related financial records remain stored; this application has no automatic purge job
+        or retention deadline. This is not permanent erasure of the retained data.
+        Already-authorized requests or export streams may finish after deletion.
+        Deleting the last active book returns 409 LAST_BOOK_REQUIRED. A foreign, unknown,
+        or already-deleted book returns 404 NOT_FOUND. If-Match is required; stale versions
+        return 412 ETAG_MISMATCH.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "204":
+          description: Book soft-deleted; related data retained and inaccessible
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
         "412": { $ref: "#/components/responses/PreconditionFailed" }
 
   /v1/books/{bookId}/categories:
@@ -900,24 +964,96 @@ components:
         defaultCurrencyCode: { type: string, nullable: true, example: "USD" }
         createdAt: { type: string, format: date-time }
 
+    BookIcon:
+      type: string
+      enum: [book, briefcase, airplane, home, car, heart, family, education, cart]
+      default: book
+      description: Lowercase persisted key. The UI more-icons tile is not an icon key.
+
+    BookColor:
+      type: string
+      enum: [green, purple, orange, blue, red, pink]
+      default: green
+      description: >-
+        Lowercase persisted key, not a hex value. Clients own theme mapping.
+        Approximate design references only (not validation values): green ~ #16A34A,
+        purple ~ #8B5CF6, orange ~ #F97316, blue ~ #3B82F6, red ~ #EF4444, pink ~ #F472B6.
+
+    BookIconInput:
+      type: string
+      nullable: true
+      enum: [book, briefcase, airplane, home, car, heart, family, education, cart, null]
+      description: Request form of BookIcon. Null uses the default on create and leaves the value unchanged on update.
+
+    BookColorInput:
+      type: string
+      nullable: true
+      enum: [green, purple, orange, blue, red, pink, null]
+      description: Request form of BookColor. Null uses the default on create and leaves the value unchanged on update.
+
+    BookOrderRequest:
+      type: object
+      required: [bookIds]
+      properties:
+        bookIds:
+          type: array
+          uniqueItems: true
+          items: { type: string, format: uuid }
+          description: Exactly all active owned book IDs in the desired order, including existing accounts above the creation cap.
+
     BookCreateRequest:
       type: object
       required: [name, currencyCode, timezone]
       properties:
-        name: { type: string, minLength: 1, maxLength: 80 }
-        currencyCode: { type: string, minLength: 3, maxLength: 3, example: "USD" }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Must not be whitespace-only. Stored without trimming; surrounding whitespace counts toward the limit. Duplicate names are allowed.
+        currencyCode:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: USD
+          description: Nonblank, exactly three characters, stored unchanged. Lowercase and unrecognized codes remain accepted; clients should send recognized uppercase codes.
         timezone: { type: string, example: "America/Chicago" }
-        openingBalanceMinor: { type: integer, format: int64, example: 0 }
+        openingBalanceMinor:
+          type: integer
+          format: int64
+          default: 0
+          description: >-
+            Optional signed integer minor units; negative values are accepted. Clients should
+            stay within +/- 9007199254740991 because larger magnitudes are not safe for
+            JavaScript clients. This recommendation is not a server-enforced cap.
+            Very large values may overflow balance arithmetic. Opening balance is excluded
+            from income/spending summaries and transaction-only import/export.
+        icon: { $ref: "#/components/schemas/BookIconInput" }
+        color: { $ref: "#/components/schemas/BookColorInput" }
 
     BookUpdateRequest:
       type: object
       properties:
-        name: { type: string, minLength: 1, maxLength: 80 }
+        name: { type: string, minLength: 1, maxLength: 80, nullable: true }
+        icon: { $ref: "#/components/schemas/BookIconInput" }
+        color: { $ref: "#/components/schemas/BookColorInput" }
 
     BookResponse:
       type: object
       required:
-        [id, name, currencyCode, timezone, openingBalanceMinor, createdAt, updatedAt, version]
+        [
+          id,
+          name,
+          currencyCode,
+          timezone,
+          openingBalanceMinor,
+          createdAt,
+          updatedAt,
+          version,
+          icon,
+          color,
+          sortOrder,
+          balanceMinor
+        ]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -928,6 +1064,16 @@ components:
         updatedAt: { type: string, format: date-time }
         deletedAt: { type: string, format: date-time, nullable: true }
         version: { type: integer, format: int64 }
+        icon: { $ref: "#/components/schemas/BookIcon" }
+        color: { $ref: "#/components/schemas/BookColor" }
+        sortOrder:
+          type: integer
+          format: int64
+          description: Zero-based position after reorder; deletion can leave gaps.
+        balanceMinor:
+          type: integer
+          format: int64
+          description: Opening balance plus active income minus active expenses, in integer minor units. Clients should stay within +/- 9007199254740991 for JavaScript precision; very large values can overflow balance arithmetic.
 
     CategoryCreateRequest:
       type: object

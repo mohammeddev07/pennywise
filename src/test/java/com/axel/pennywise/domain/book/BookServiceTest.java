@@ -23,6 +23,7 @@ import org.springframework.http.HttpStatus;
 class BookServiceTest {
 
   @Mock private BookRepository repo;
+  @Mock private com.axel.pennywise.domain.user.UserRepository userRepo;
   @Mock private CategoryService categoryService;
   @Mock private CacheEvictionService cacheEvictionService;
 
@@ -65,7 +66,9 @@ class BookServiceTest {
 
     when(repo.save(any(BookEntity.class))).thenReturn(saved);
 
+    when(userRepo.lockActiveById(userId)).thenReturn(Optional.of(user));
     BookEntity result = bookService.create(user, "My Book", "USD", "UTC", 5000L);
+    verify(repo).findAllByOwner_IdAndDeletedAtIsNull(userId);
 
     assertSame(saved, result);
 
@@ -95,25 +98,6 @@ class BookServiceTest {
     assertEquals(HttpStatus.BAD_REQUEST, ex.status());
     assertEquals("Invalid book timezone", ex.getMessage());
     verifyNoInteractions(repo, categoryService, cacheEvictionService);
-  }
-
-  @Test
-  void updateName_setsNameAndSaves() {
-    BookEntity existing = new BookEntity();
-    existing.setId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
-    existing.setName("Old");
-    existing.setOwner(user);
-
-    when(repo.save(existing)).thenReturn(existing);
-
-    BookEntity result = bookService.updateName(existing, "New Name");
-
-    assertSame(existing, result);
-    assertEquals("New Name", existing.getName());
-
-    verify(repo).save(existing);
-    verify(cacheEvictionService).evictBooks(userId);
-    verifyNoMoreInteractions(repo, categoryService, cacheEvictionService);
   }
 
   @Test

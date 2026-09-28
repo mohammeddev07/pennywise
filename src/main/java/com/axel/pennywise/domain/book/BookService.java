@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class BookService {
   private final BookRepository repo;
+  private final com.axel.pennywise.domain.user.UserRepository userRepo;
   private final CategoryService categoryService;
   private final CacheEvictionService cacheEvictionService;
 
@@ -41,6 +42,23 @@ public class BookService {
       String currencyCode,
       String timezone,
       long openingBalanceMinor) {
+    return create(user, name, currencyCode, timezone, openingBalanceMinor, null, null);
+  }
+
+  @Transactional
+  public BookEntity create(
+      UserEntity user,
+      String name,
+      String currencyCode,
+      String timezone,
+      long openingBalanceMinor,
+      String icon,
+      String color) {
+    validateName(name);
+    if (currencyCode == null || currencyCode.isBlank() || currencyCode.length() != 3) {
+      throw validation("Currency must contain three characters");
+    }
+    BookStyles.validate(icon, color);
     log.debug(
         "Creating book for user: userId={}, name={}, currency={}",
         user.getId(),
@@ -49,7 +67,16 @@ public class BookService {
 
     validateTimezone(timezone);
 
+    lockOwner(user);
+    List<BookEntity> active = repo.findAllByOwner_IdAndDeletedAtIsNull(user.getId());
+    if (active.size() >= 10) {
+      throw new ApiException(
+          HttpStatus.CONFLICT, "BOOK_LIMIT_REACHED", "At most 10 active books are allowed");
+    }
     BookEntity b = new BookEntity();
+    b.setIcon(icon == null ? BookStyles.DEFAULT_ICON : icon);
+    b.setColor(color == null ? BookStyles.DEFAULT_COLOR : color);
+    b.setSortOrder(active.stream().mapToLong(BookEntity::getSortOrder).max().orElse(-1) + 1);
     b.setOwner(user);
     b.setName(name);
     b.setCurrencyCode(currencyCode);
@@ -75,21 +102,110 @@ public class BookService {
     }
   }
 
-  @Transactional
-  public BookEntity updateName(BookEntity book, String newName) {
-    book.setName(newName);
-    BookEntity saved = repo.save(book);
-    cacheEvictionService.evictBooks(saved.getOwner().getId());
-    return saved;
+  public record WithBalance(BookEntity book, long balanceMinor) {}
+
+  /**
+   * Fresh metadata and a single grouped aggregate under one consistent database snapshot. Do not
+   * combine cached entities with current balances: deletion/reorder can change membership.
+   */
+  @Transactional(
+      readOnly = true,
+      isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+  public List<WithBalance> listWithBalances(UserEntity user) {
+    var books = repo.findAllByOwner_IdAndDeletedAtIsNull(user.getId());
+    var totals =
+        repo.totalsForOwner(user.getId()).stream()
+            .collect(java.util.stream.Collectors.toMap(BookRepository.Totals::getBookId, t -> t));
+    return books.stream()
+        .map(
+            b -> {
+              var t = totals.get(b.getId());
+              long net = t == null ? 0 : t.getIncome().longValue() - t.getExpense().longValue();
+              return new WithBalance(b, b.getOpeningBalanceMinor() + net);
+            })
+        .toList();
   }
 
   @Transactional
-  public void softDelete(BookEntity book) {
-    if (book.getDeletedAt() == null) {
-      book.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
+  public BookEntity update(
+      UserEntity user, UUID bookId, long expectedVersion, String name, String icon, String color) {
+    if (name == null && icon == null && color == null)
+      throw validation("PATCH request must contain at least one field");
+    if (name != null) validateName(name);
+    BookStyles.validate(icon, color);
+    lockOwner(user);
+    BookEntity book = requireOwned(bookId, user);
+    requireVersion(book, expectedVersion);
+    // Preserve the existing PATCH rename trimming behavior (creation does not trim).
+    if (name != null) book.setName(name.trim());
+    if (icon != null) book.setIcon(icon);
+    if (color != null) book.setColor(color);
+    repo.flush();
+    cacheEvictionService.evictBooks(user.getId());
+    return book;
+  }
+
+  @Transactional
+  public void delete(UserEntity user, UUID bookId, long expectedVersion) {
+    lockOwner(user);
+    BookEntity book = requireOwned(bookId, user);
+    requireVersion(book, expectedVersion);
+    if (repo.findAllByOwner_IdAndDeletedAtIsNull(user.getId()).size() <= 1) {
+      throw new ApiException(
+          HttpStatus.CONFLICT, "LAST_BOOK_REQUIRED", "At least one active book is required");
     }
-    repo.save(book);
-    cacheEvictionService.evictBooks(book.getOwner().getId());
+    book.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
+    repo.flush();
+    cacheEvictionService.evictBooks(user.getId());
+    cacheEvictionService.evictBook(bookId);
+    cacheEvictionService.evictCategories(bookId);
+  }
+
+  @Transactional
+  public void reorder(UserEntity user, List<UUID> ids) {
+    if (ids == null
+        || ids.stream().anyMatch(java.util.Objects::isNull)
+        || new java.util.HashSet<>(ids).size() != ids.size()) {
+      throw validation("bookIds must be a list of distinct book IDs");
+    }
+    lockOwner(user);
+    var books = repo.findAllByOwner_IdAndDeletedAtIsNull(user.getId());
+    if (books.size() != ids.size())
+      throw validation("bookIds must contain exactly all active books; refresh and retry");
+    var byId = books.stream().collect(java.util.stream.Collectors.toMap(BookEntity::getId, b -> b));
+    for (UUID id : ids) {
+      if (!byId.containsKey(id)) requireOwned(id, user);
+    }
+    for (int i = 0; i < ids.size(); i++) byId.get(ids.get(i)).setSortOrder(i);
+    repo.flush();
+    cacheEvictionService.evictBooks(user.getId());
+  }
+
+  private void lockOwner(UserEntity user) {
+    userRepo
+        .lockActiveById(user.getId())
+        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "User not found"));
+  }
+
+  private static void validateName(String name) {
+    if (name == null || name.isBlank() || name.length() > 80)
+      throw validation("Book name must be nonblank and at most 80 characters");
+  }
+
+  private static ApiException validation(String message) {
+    return new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", message);
+  }
+
+  private static void requireVersion(BookEntity book, long expected) {
+    long actual = book.getVersion() == null ? 0 : book.getVersion();
+    if (expected != actual)
+      throw new ApiException(
+          HttpStatus.PRECONDITION_FAILED,
+          "ETAG_MISMATCH",
+          "Resource was modified. Re-fetch and retry.",
+          List.of(
+              java.util.Map.of(
+                  "expected", String.valueOf(expected), "actual", String.valueOf(actual))));
   }
 
   public BookEntity requireOwned(UUID bookId, UserEntity user) {
