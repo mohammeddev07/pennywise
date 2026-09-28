@@ -10,6 +10,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -54,7 +55,7 @@ public class AuthService {
 
     // Google-created users have a different auth_subject but the same email; keep one account
     // per email so a later local signup can't shadow a Google user.
-    if (userRepo.existsByEmailAndDeletedAtIsNull(normalizedEmail)) {
+    if (userRepo.existsActiveByEmail(normalizedEmail)) {
       throw new ApiException(
           HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED", "Email is already registered");
     }
@@ -65,7 +66,13 @@ public class AuthService {
     user.setPasswordHash(passwordEncoder.encode(password));
     user.setDefaultCurrencyCode(normalizeCurrency(defaultCurrencyCode));
 
-    return tokenResponse(userRepo.save(user));
+    try {
+      return tokenResponse(userRepo.saveAndFlush(user));
+    } catch (DataIntegrityViolationException e) {
+      // Lost a race with a concurrent signup for the same email (unique index on lower(email)).
+      throw new ApiException(
+          HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED", "Email is already registered");
+    }
   }
 
   @Transactional(readOnly = true)
@@ -100,7 +107,7 @@ public class AuthService {
     }
 
     String email = normalizeEmail(google.email());
-    if (userRepo.existsByEmailAndDeletedAtIsNull(email)) {
+    if (userRepo.existsActiveByEmail(email)) {
       throw new ApiException(
           HttpStatus.CONFLICT,
           "GOOGLE_ACCOUNT_LINK_REQUIRED",
@@ -112,7 +119,16 @@ public class AuthService {
     user.setAuthSubject(GOOGLE_PREFIX + google.sub());
     user.setEmail(email);
     user.setGoogleSub(google.sub());
-    return tokenResponse(userRepo.save(user));
+    try {
+      return tokenResponse(userRepo.saveAndFlush(user));
+    } catch (DataIntegrityViolationException e) {
+      // Lost a race: the same email (or Google account) was just created by another request.
+      throw new ApiException(
+          HttpStatus.CONFLICT,
+          "GOOGLE_ACCOUNT_LINK_REQUIRED",
+          "An account with this email already exists. Log in with your password, then link"
+              + " Google.");
+    }
   }
 
   /** Attach a verified Google account to the already-authenticated user. Idempotent. */
