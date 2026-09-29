@@ -1040,6 +1040,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email, nullable: true }
+        displayName: { type: string, nullable: true, maxLength: 40, example: "Sam" }
         defaultCurrencyCode: { type: string, nullable: true, example: "USD" }
         createdAt: { type: string, format: date-time }
 

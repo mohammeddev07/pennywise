@@ -56,4 +56,11 @@ public class UserService {
     user.setDefaultCurrencyCode(normalized);
     return repo.save(user);
   }
+
+  /** Trimmed; a blank name clears it. */
+  public UserEntity updateDisplayName(UserEntity user, String displayName) {
+    String trimmed = displayName == null ? "" : displayName.trim();
+    user.setDisplayName(trimmed.isEmpty() ? null : trimmed);
+    return repo.save(user);
+  }
 }

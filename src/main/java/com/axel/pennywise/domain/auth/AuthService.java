@@ -155,12 +155,7 @@ public class AuthService {
     }
 
     user.setGoogleSub(google.sub());
-    return toMeResponse(userRepo.save(user));
-  }
-
-  public MeResponse toMeResponse(UserEntity user) {
-    return new MeResponse(
-        user.getId(), user.getEmail(), user.getDefaultCurrencyCode(), user.getCreatedAt());
+    return MeResponse.from(userRepo.save(user));
   }
 
   private AuthResponse tokenResponse(UserEntity user) {
@@ -185,7 +180,7 @@ public class AuthService {
         jwtEncoder.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();
     long expiresIn = Math.max(0, expiresAt.getEpochSecond() - issuedAt.getEpochSecond());
 
-    return new AuthResponse(token, BEARER, expiresIn, toMeResponse(user));
+    return new AuthResponse(token, BEARER, expiresIn, MeResponse.from(user));
   }
 
   private String normalizeEmail(String email) {

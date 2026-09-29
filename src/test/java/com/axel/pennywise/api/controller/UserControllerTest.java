@@ -74,7 +74,7 @@ class UserControllerTest {
     when(userService.getOrCreate(any(), any(), any())).thenReturn(testUser);
     when(userService.updateDefaultCurrency(testUser, "eur")).thenReturn(updated);
 
-    MeUpdateRequest req = new MeUpdateRequest("eur");
+    MeUpdateRequest req = new MeUpdateRequest("eur", null);
 
     mockMvc
         .perform(
@@ -94,7 +94,7 @@ class UserControllerTest {
 
   @Test
   void testPatchMeRejectsInvalidDefaultCurrency() throws Exception {
-    MeUpdateRequest req = new MeUpdateRequest("EURO");
+    MeUpdateRequest req = new MeUpdateRequest("EURO", null);
 
     mockMvc
         .perform(
@@ -127,6 +127,46 @@ class UserControllerTest {
                 .content("{\"defaultCurrencyCode\":null}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+    verifyNoInteractions(userService);
+  }
+
+  @Test
+  void testPatchMeSetsDisplayNameWithoutTouchingCurrency() throws Exception {
+    UserEntity updated = new UserEntity();
+    updated.setId(testUser.getId());
+    updated.setEmail(testUser.getEmail());
+    updated.setDefaultCurrencyCode("USD");
+    updated.setDisplayName("Sam");
+    updated.setCreatedAt(testUser.getCreatedAt());
+
+    when(userService.getOrCreate(any(), any(), any())).thenReturn(testUser);
+    when(userService.updateDisplayName(testUser, " Sam ")).thenReturn(updated);
+
+    mockMvc
+        .perform(
+            patch("/v1/me")
+                .with(auth())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"displayName\":\" Sam \"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.displayName").value("Sam"))
+        .andExpect(jsonPath("$.defaultCurrencyCode").value("USD"));
+
+    verify(userService).getOrCreate(any(), any(), any());
+    verify(userService).updateDisplayName(testUser, " Sam ");
+    verifyNoMoreInteractions(userService);
+  }
+
+  @Test
+  void testPatchMeRejectsOverlongDisplayName() throws Exception {
+    mockMvc
+        .perform(
+            patch("/v1/me")
+                .with(auth())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"displayName\":\"" + "x".repeat(41) + "\"}"))
+        .andExpect(status().isBadRequest());
 
     verifyNoInteractions(userService);
   }
