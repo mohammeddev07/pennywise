@@ -13,7 +13,8 @@ public record RateLimitProperties(
     @DefaultValue Bucket user,
     @DefaultValue Ip ip,
     @DefaultValue Global global,
-    @DefaultValue Costs costs) {
+    @DefaultValue Costs costs,
+    @DefaultValue Support support) {
 
   /** Per authenticated user, in Postgres. A mobile screen load fires ~5 GETs at once. */
   public record Bucket(
@@ -38,4 +39,13 @@ public record RateLimitProperties(
       @DefaultValue("25") int export,
       @DefaultValue("40") int importFile,
       @DefaultValue("1") int auth) {}
+
+  /** Dedicated, DB-backed support quotas. These apply even when generic limiting is disabled. */
+  public record Support(
+      @DefaultValue("2") double userCapacity,
+      @DefaultValue("0.0005555555555555556") double userRefillPerSecond,
+      @DefaultValue("10") double ipCapacity,
+      @DefaultValue("0.002777777777777778") double ipRefillPerSecond,
+      @DefaultValue("20") double globalCapacity,
+      @DefaultValue("0.0002314814814814815") double globalRefillPerSecond) {}
 }

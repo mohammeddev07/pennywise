@@ -1,5 +1,6 @@
 package com.axel.pennywise.security.ratelimit;
 
+import com.axel.pennywise.exception.ApiException;
 import com.axel.pennywise.exception.RateLimitExceededException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -7,6 +8,7 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -24,6 +26,7 @@ class RateLimitInterceptor implements HandlerInterceptor {
 
   private static final String BOOK = "/v1/books/{bookId}";
   private static final String TX = BOOK + "/transactions";
+  private static final String SUPPORT_CONTACT = "/v1/support/contact";
 
   private final RateLimitProperties props;
   private final PostgresTokenBucket store;
@@ -38,9 +41,15 @@ class RateLimitInterceptor implements HandlerInterceptor {
   @Override
   public boolean preHandle(
       HttpServletRequest request, HttpServletResponse response, Object handler) {
-    if (!props.enabled() || HttpMethod.OPTIONS.matches(request.getMethod())) return true;
+    if (HttpMethod.OPTIONS.matches(request.getMethod())) return true;
 
     String pattern = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+    boolean support =
+        SUPPORT_CONTACT.equals(pattern) && HttpMethod.POST.matches(request.getMethod());
+    if (!props.enabled()) {
+      if (support) consumeSupport(request);
+      return true;
+    }
     boolean auth = pattern != null && pattern.startsWith("/v1/auth/");
     int cost = cost(request.getMethod(), pattern);
 
@@ -60,7 +69,49 @@ class RateLimitInterceptor implements HandlerInterceptor {
           "Too many requests. Try again in " + retryAfter + " seconds.",
           retryAfter);
     }
+    if (support) consumeSupport(request);
     return true;
+  }
+
+  private void consumeSupport(HttpServletRequest request) {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (!(authentication instanceof JwtAuthenticationToken jwt)) {
+      // This route must never send mail when authentication has been disabled locally.
+      throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Unauthorized");
+    }
+
+    var limits = props.support();
+    try {
+      int retryAfter =
+          store.tryConsume(
+              "support:u:" + jwt.getToken().getSubject(),
+              1,
+              limits.userCapacity(),
+              limits.userRefillPerSecond());
+      if (retryAfter == 0) {
+        retryAfter =
+            store.tryConsume(
+                "support:ip:" + request.getRemoteAddr(),
+                1,
+                limits.ipCapacity(),
+                limits.ipRefillPerSecond());
+      }
+      if (retryAfter == 0) {
+        retryAfter =
+            store.tryConsume(
+                "support:global", 1, limits.globalCapacity(), limits.globalRefillPerSecond());
+      }
+      if (retryAfter > 0) {
+        throw new RateLimitExceededException(
+            "SUPPORT_RATE_LIMITED", "Too many support messages. Try again later.", retryAfter);
+      }
+    } catch (DataAccessException e) {
+      log.warn("Support rate limit check failed: {}", e.getClass().getSimpleName());
+      throw new ApiException(
+          HttpStatus.SERVICE_UNAVAILABLE,
+          "SUPPORT_UNAVAILABLE",
+          "Support is temporarily unavailable. Please try again later.");
+    }
   }
 
   private int consumeCaller(HttpServletRequest request, boolean auth, int cost) {

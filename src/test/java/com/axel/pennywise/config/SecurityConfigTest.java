@@ -3,6 +3,7 @@ package com.axel.pennywise.config;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -60,6 +61,14 @@ class SecurityConfigTest {
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"))
         .andExpect(jsonPath("$.error.message").value("Missing, invalid, or expired bearer token"));
+  }
+
+  @Test
+  void supportContactWithoutToken_returnsJson401() throws Exception {
+    mockMvc
+        .perform(post("/v1/support/contact"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
   }
 
   @Test

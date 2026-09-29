@@ -9,6 +9,7 @@ tags:
   - name: Health
   - name: Auth
   - name: Users
+  - name: Support
   - name: Books
   - name: Categories
   - name: Transactions
@@ -151,6 +152,40 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/MeResponse" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/support/contact:
+    post:
+      tags: [Support]
+      summary: Send a support message
+      description: >-
+        Requires a bearer token and an account email. The recipient and provider credentials are
+        configured server-side. Dedicated Postgres-backed quotas allow two messages per hour per
+        user, ten per hour per IP, and twenty per day globally. Limiter failures reject sends.
+        Reuse the same Idempotency-Key when retrying an unchanged message; the mail provider
+        deduplicates accepted sends for 24 hours.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 100, pattern: '^[A-Za-z0-9_-]+$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject, message]
+              properties:
+                subject: { type: string, minLength: 1, maxLength: 120 }
+                message: { type: string, minLength: 1, maxLength: 5000 }
+      responses:
+        "204": { description: Accepted by the mail provider }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { description: Account email required }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "502": { description: Mail provider rejected or could not receive the send }
+        "503": { description: Mail configuration or support limiter unavailable }
 
   /v1/books:
     get:

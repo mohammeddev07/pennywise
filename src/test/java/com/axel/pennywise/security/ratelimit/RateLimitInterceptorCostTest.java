@@ -13,7 +13,8 @@ class RateLimitInterceptorCostTest {
               new RateLimitProperties.Bucket(60, 2),
               new RateLimitProperties.Ip(8, 0.1),
               new RateLimitProperties.Global(200, 50),
-              new RateLimitProperties.Costs(1, 2, 2, 3, 5, 20, 25, 40, 1)),
+              new RateLimitProperties.Costs(1, 2, 2, 3, 5, 20, 25, 40, 1),
+              new RateLimitProperties.Support(2, 2.0 / 3600, 10, 10.0 / 3600, 20, 20.0 / 86400)),
           null);
 
   @Test
