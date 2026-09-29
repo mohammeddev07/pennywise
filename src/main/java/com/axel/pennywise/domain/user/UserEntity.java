@@ -27,6 +27,9 @@ public class UserEntity extends AuditedEntity {
 
   @Column private String googleSub;
 
+  @Column(length = 40)
+  private String displayName;
+
   @Column(length = 3)
   private String defaultCurrencyCode;
 }

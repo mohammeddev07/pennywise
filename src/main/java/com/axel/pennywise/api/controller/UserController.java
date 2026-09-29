@@ -29,13 +29,13 @@ public class UserController {
   @GetMapping("/me")
   public ResponseEntity<MeResponse> me(Authentication auth) {
     UserEntity user = currentUser(auth);
-    return ResponseEntity.ok(toMeResponse(user));
+    return ResponseEntity.ok(MeResponse.from(user));
   }
 
   @PatchMapping("/me")
   public ResponseEntity<MeResponse> patchMe(
       Authentication auth, @Valid @RequestBody MeUpdateRequest req) {
-    if (req.defaultCurrencyCode() == null) {
+    if (req.defaultCurrencyCode() == null && req.displayName() == null) {
       throw new ApiException(
           HttpStatus.BAD_REQUEST,
           "VALIDATION_ERROR",
@@ -43,17 +43,17 @@ public class UserController {
     }
 
     UserEntity user = currentUser(auth);
-    UserEntity updated = userService.updateDefaultCurrency(user, req.defaultCurrencyCode());
-    return ResponseEntity.ok(toMeResponse(updated));
+    if (req.defaultCurrencyCode() != null) {
+      user = userService.updateDefaultCurrency(user, req.defaultCurrencyCode());
+    }
+    if (req.displayName() != null) {
+      user = userService.updateDisplayName(user, req.displayName());
+    }
+    return ResponseEntity.ok(MeResponse.from(user));
   }
 
   private UserEntity currentUser(Authentication auth) {
     return userService.getOrCreate(
         auth, CurrentUser.subject().orElse(LOCAL), CurrentUser.email().orElse(null));
-  }
-
-  private MeResponse toMeResponse(UserEntity user) {
-    return new MeResponse(
-        user.getId(), user.getEmail(), user.getDefaultCurrencyCode(), user.getCreatedAt());
   }
 }
