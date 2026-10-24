@@ -15,6 +15,16 @@ class GlobalExceptionHandlerTest {
   private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
 
   @Test
+  void unavailableConnectionsReturnRetryable503WithoutDatabaseDetails() {
+    var response = handler.handleDatabaseUnavailable(
+        new org.springframework.transaction.CannotCreateTransactionException("private database URL"));
+    assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
+    assertEquals("1", response.getHeaders().getFirst("Retry-After"));
+    assertEquals("DATABASE_UNAVAILABLE", response.getBody().error().code());
+    assertEquals("Database temporarily unavailable", response.getBody().error().message());
+  }
+
+  @Test
   void typeMismatchReturnsStandardBadRequestResponse() {
     MethodArgumentTypeMismatchException exception =
         new MethodArgumentTypeMismatchException(

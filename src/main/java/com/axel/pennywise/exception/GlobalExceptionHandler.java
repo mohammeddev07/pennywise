@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -32,6 +34,14 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+  @ExceptionHandler({CannotCreateTransactionException.class, DataAccessResourceFailureException.class})
+  public ResponseEntity<ErrorResponse> handleDatabaseUnavailable(RuntimeException ex) {
+    log.warn("Database connection unavailable");
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+        .header("Retry-After", "1")
+        .body(error("DATABASE_UNAVAILABLE", "Database temporarily unavailable", List.of()));
+  }
 
   @ExceptionHandler(RateLimitExceededException.class)
   public ResponseEntity<ErrorResponse> handleRateLimit(RateLimitExceededException ex) {
