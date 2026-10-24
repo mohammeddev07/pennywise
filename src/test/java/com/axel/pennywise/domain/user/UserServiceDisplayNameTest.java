@@ -6,12 +6,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.transaction.PlatformTransactionManager;
 
 class UserServiceDisplayNameTest {
 
   private final UserRepository repo = mock(UserRepository.class);
-  private final UserService service = new UserService(repo, mock(PlatformTransactionManager.class));
+  private final UserService service = new UserService(repo);
 
   @Test
   void trimsAndClearsBlankNames() {

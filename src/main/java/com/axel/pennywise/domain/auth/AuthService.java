@@ -4,7 +4,6 @@ import com.axel.pennywise.api.dto.auth.AuthResponse;
 import com.axel.pennywise.api.dto.user.MeResponse;
 import com.axel.pennywise.domain.user.UserEntity;
 import com.axel.pennywise.domain.user.UserRepository;
-import com.axel.pennywise.domain.user.UserService;
 import com.axel.pennywise.exception.ApiException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -34,7 +33,6 @@ public class AuthService {
   private final PasswordEncoder passwordEncoder;
   private final JwtEncoder jwtEncoder;
   private final GoogleTokenVerifier googleVerifier;
-  private final UserService userService;
 
   @Value("${app.security.jwt.issuer:pennywise}")
   private String issuer;
@@ -157,9 +155,7 @@ public class AuthService {
     }
 
     user.setGoogleSub(google.sub());
-    UserEntity saved = userRepo.save(user);
-    userService.evictAfterCommit(user.getAuthSubject());
-    return MeResponse.from(saved);
+    return MeResponse.from(userRepo.save(user));
   }
 
   private AuthResponse tokenResponse(UserEntity user) {
