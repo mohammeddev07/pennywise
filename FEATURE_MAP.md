@@ -5,6 +5,7 @@ Index of domain packages, Spring Security endpoints, database entities, and test
 ## Feature Modules
 
 ### AI Filter Proposals
+
 - **Package**: `com.example.app.domain.transaction.query.ai`
 - **Primary Classes**: `GeminiFilterClient`, `TransactionFilterController`
 - **Prompts**: `src/main/resources/prompts/ai-filter-proposal.md`

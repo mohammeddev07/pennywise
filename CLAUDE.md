@@ -49,18 +49,22 @@ Conventions this project actually follows. Read before branching, committing, or
 When building, refactoring, or extending a feature in a single prompt:
 
 ### 1. Package-by-Feature Encapsulation (Shortest Path)
-- **Co-locate Feature Domain Logic**: Put controller, service, repository, DTOs, domain exceptions, and mapper classes within its specific feature package (e.g., `com.example.app.domain.<feature-name>/`). Do not pollute global `common/` or `shared/` packages unless an asset is strictly reused across >2 features.
+
+- **Keep Feature Domain Logic Together**: Put controller, service, repository, DTOs, domain exceptions, and mapper classes within its specific feature package (e.g., `com.example.app.domain.<feature-name>/`). Do not pollute global `common/` or `shared/` packages unless an asset is strictly reused across >2 features.
 - **Consult `FEATURE_MAP.md` First**: Check `FEATURE_MAP.md` at the root for existing domain package paths, database entities, and test endpoints before searching the tree with `grep` or file listings.
 - **Strict Guardrails**: Follow the existing Flyway migration, Spring Security, and `google-java-format` guidelines without introducing unrequested global abstractions.
 
 ### 2. Feature Map Requirement
+
 - Whenever you add or significantly alter a feature/endpoint, update `FEATURE_MAP.md` at the root with:
   - Feature domain package & primary `@RestController` / `@Service` classes.
   - Flyway migration script prefix or affected JPA entities.
   - Dedicated verification command (e.g., `./gradlew test --tests "com.example.app.domain.<feature>.*"`).
 
 ### 3. Mandatory Verification Loop
+
 Do not mark a prompt task as complete without executing the local verification chain:
+
 1. **Compilation & Test Suite**: Run `./gradlew build` to confirm compilation and zero test failures.
 2. **Code Formatting**: Run `google-java-format` on modified `.java` files using the JDK export flags specified under "Before opening a PR".
 3. **Migration Check**: If DB schema changes were made, verify Flyway migrations compile and pass local test execution.
