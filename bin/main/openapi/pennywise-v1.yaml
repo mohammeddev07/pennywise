@@ -1,0 +1,1782 @@
+openapi: 3.0.3
+info:
+  title: PennyWise API
+  version: 1.0.0
+  description: Personal expense tracking API with multi-book support, idempotent operations, and optimistic concurrency control
+servers:
+  - url: /api
+tags:
+  - name: Health
+  - name: Auth
+  - name: Users
+  - name: Books
+  - name: Categories
+  - name: Transactions
+  - name: Budgets
+  - name: Summary
+  - name: AI Filters
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      security: []
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: "UP" }
+
+  /v1/auth/signup:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Sign up with email and password
+      description: Creates a backend-owned user, stores a BCrypt password hash, and returns a bearer JWT for protected APIs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AuthRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Log in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/auth/google:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Log in or sign up with a Google ID token
+      description: >-
+        The app obtains a Google ID token with the native Google Sign-In SDK and sends it here. The
+        server verifies it (signature, issuer, audience = configured client IDs, expiry, verified
+        email) and returns the same bearer JWT as `/v1/auth/login`. A first-time Google user gets a
+        new account with no password. If the Google email already belongs to an email/password
+        account the accounts are NOT merged: the response is 409 `GOOGLE_ACCOUNT_LINK_REQUIRED`
+        and the user must log in with their password and call `/v1/auth/google/link`. Returns 503
+        `GOOGLE_SIGN_IN_NOT_CONFIGURED` when the server has no client IDs configured.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GoogleAuthRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: Invalid Google token (`GOOGLE_TOKEN_INVALID`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503":
+          description: Google sign-in is not configured (`GOOGLE_SIGN_IN_NOT_CONFIGURED`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /v1/auth/google/link:
+    post:
+      tags: [Auth]
+      summary: Link a Google account to the logged-in user
+      description: >-
+        Requires a bearer token. Idempotent for the same Google account. 409
+        `GOOGLE_ACCOUNT_ALREADY_LINKED` if that Google account belongs to another user or this user
+        is already linked to a different Google account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GoogleAuthRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MeResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503":
+          description: Google sign-in is not configured (`GOOGLE_SIGN_IN_NOT_CONFIGURED`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /v1/me:
+    get:
+      tags: [Users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MeResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/books:
+    get:
+      tags: [Books]
+      summary: List books for current user
+      description: Active books ordered by sortOrder, creation time, then ID. Balances include opening balances and all active transactions, calculated together in one grouped query.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/BookResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Books]
+      summary: Create book (currency locked)
+      description: >-
+        At most 10 active books may be created per user. Existing users above this limit retain
+        access but cannot create more. The limit returns 409 BOOK_LIMIT_REACHED.
+        Omitted or null icon/color use book/green. Unknown style keys return 400 VALIDATION_ERROR.
+        Creating a book seeds its default categories. Signup itself does not create a book.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BookResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/books/order:
+    put:
+      tags: [Books]
+      summary: Replace the active book order
+      description: >-
+        Send every active owned book ID exactly once. The operation is atomic and serialized
+        with book create/update/delete for this user. The last successfully serialized reorder
+        wins; overlapping requests are not guaranteed to follow client send order.
+        If reorder runs first, it succeeds and the subsequent create/delete applies normally.
+        If create/delete runs first and the active-book count differs, reorder returns
+        400 VALIDATION_ERROR; refresh the list and retry. Duplicate IDs also return
+        400 VALIDATION_ERROR. With matching counts, foreign, unknown, or deleted IDs return
+        404 NOT_FOUND. Rejected requests never change any positions. Successful reorder may
+        advance versions of repositioned books; refresh before PATCH or DELETE.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookOrderRequest" }
+      responses:
+        "204":
+          description: Order persisted
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/books/{bookId}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      tags: [Books]
+      summary: Get book
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BookResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Books]
+      summary: Update book name, icon, or color
+      description: >-
+        Currency, timezone, and opening balance are immutable through this endpoint.
+        Omitted or null fields are unchanged; at least one non-null writable field is required.
+        Names must be nonblank and at most 80 characters before trimming; rename preserves
+        the existing behavior of trimming surrounding whitespace. Creation does not trim.
+        Unknown style keys return 400 VALIDATION_ERROR. No-op updates retain the version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BookResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+    delete:
+      tags: [Books]
+      summary: Soft-delete a book and hide its financial data
+      description: >-
+        Marks the book deleted, including books with transactions. The book and its transactions,
+        categories, budgets, summaries, and exports become inaccessible through the API.
+        There is no recovery endpoint. Login/account access and other books are unaffected.
+        Related financial records remain stored; this application has no automatic purge job
+        or retention deadline. This is not permanent erasure of the retained data.
+        Already-authorized requests or export streams may finish after deletion.
+        Deleting the last active book returns 409 LAST_BOOK_REQUIRED. A foreign, unknown,
+        or already-deleted book returns 404 NOT_FOUND. If-Match is required; stale versions
+        return 412 ETAG_MISMATCH.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "204":
+          description: Book soft-deleted; related data retained and inaccessible
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/books/{bookId}/categories:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      tags: [Categories]
+      summary: List categories for book
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/CategoryResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Categories]
+      summary: Add category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CategoryCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CategoryResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/books/{bookId}/categories/{categoryId}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - $ref: "#/components/parameters/CategoryId"
+      - $ref: "#/components/parameters/IfMatch"
+    patch:
+      tags: [Categories]
+      summary: Rename/disable category (disable preferred over delete)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CategoryUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CategoryResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/books/{bookId}/budgets:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - name: month
+        in: query
+        required: true
+        schema:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          example: "2026-01"
+    get:
+      tags: [Budgets]
+      summary: List monthly category budgets with spend
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/BudgetResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/books/{bookId}/budgets/{categoryId}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - $ref: "#/components/parameters/CategoryId"
+      - name: month
+        in: query
+        required: true
+        schema:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          example: "2026-01"
+    put:
+      tags: [Budgets]
+      summary: Create or update a monthly category budget
+      parameters:
+        - $ref: "#/components/parameters/OptionalIfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BudgetUpsertRequest" }
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BudgetResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+    delete:
+      tags: [Budgets]
+      summary: Remove a monthly category budget
+      parameters:
+        - $ref: "#/components/parameters/OptionalIfMatch"
+      responses:
+        "204":
+          description: Deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/books/{bookId}/transactions:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - name: from
+        in: query
+        schema: { type: string, format: date }
+      - name: to
+        in: query
+        schema: { type: string, format: date }
+      - name: type
+        in: query
+        schema: { $ref: "#/components/schemas/TransactionType" }
+      - name: categoryId
+        in: query
+        schema: { type: string, format: uuid }
+      - name: q
+        in: query
+        description: Optional search across title, note, category name, payment method, type, and amount text
+        schema: { type: string }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      - name: cursor
+        in: query
+        schema: { type: string }
+    get:
+      tags: [Transactions]
+      summary: List transactions (cursor pagination)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransactionListResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Transactions]
+      summary: Create transaction (idempotent)
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransactionCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransactionResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/books/{bookId}/transactions/{txId}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - $ref: "#/components/parameters/TxId"
+    get:
+      tags: [Transactions]
+      summary: Get transaction
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransactionResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Transactions]
+      summary: Update transaction (optimistic concurrency)
+      description: |
+        Partial update. Presence semantics:
+        - omitted property: unchanged
+        - `title`, `note`, `paymentMethod`: explicit `null` clears the value; a blank string also clears `title`/`note`
+        - `type`, `amountMinor`, `occurredOn`, `occurredAt`, `categoryId`: explicit `null` is rejected (400 VALIDATION_ERROR)
+        - `id`, `bookId`, `createdAt`, `updatedAt`, `deletedAt`, `version`, `externalId` or any unknown property: rejected (400 VALIDATION_ERROR, `details[0].field` names it); the record is never altered
+        - an empty object is rejected
+
+        Dates: `occurredOn` alone moves the ledger day and resets `occurredAt` to book-local midnight;
+        `occurredAt` alone derives `occurredOn` in the book timezone; both together must agree.
+
+        The response body and `ETag` carry the committed values. `createdAt` and `id` never change.
+        `updatedAt` and `version` advance only when the row actually changed: a PATCH that repeats the
+        stored values is a no-op and returns the unchanged `version`/`updatedAt` (the `If-Match` you sent
+        stays valid).
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransactionUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransactionResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+    delete:
+      tags: [Transactions]
+      summary: Soft delete transaction (optimistic concurrency)
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /v1/books/{bookId}/balance:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      tags: [Summary]
+      summary: Get balance header
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BalanceResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/books/{bookId}/summary/monthly:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - name: month
+        in: query
+        required: true
+        schema:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          example: "2026-01"
+    get:
+      tags: [Summary]
+      summary: Monthly summary (income/expense totals + category breakdown)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MonthlySummaryResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/books/{bookId}/summary/range:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - name: startDate
+        in: query
+        required: true
+        schema: { type: string, format: date }
+      - name: endDate
+        in: query
+        required: true
+        schema: { type: string, format: date }
+    get:
+      tags: [Summary]
+      summary: Custom date-range summary (totals, day-by-day, category breakdown)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RangeSummaryResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/books/{bookId}/transactions/import:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      tags: [Transactions]
+      summary: Import transactions from the standard .xlsx template (synchronous)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: OK - per-row import report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { description: File or row count exceeds the configured limit }
+
+  /v1/books/{bookId}/transactions/export:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+      - name: from
+        in: query
+        schema: { type: string, format: date }
+      - name: to
+        in: query
+        schema: { type: string, format: date }
+      - name: type
+        in: query
+        schema: { $ref: "#/components/schemas/TransactionType" }
+      - name: categoryId
+        in: query
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Transactions]
+      summary: Export transactions to the standard .xlsx template (synchronous)
+      responses:
+        "200":
+          description: OK - .xlsx file stream
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/books/{bookId}/transactions/search:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      tags: [Transactions]
+      summary: Search transactions with a filter expression, sorting and offset paging
+      description: |
+        Same rows as the GET list for equivalent filters, but with nested AND/OR groups and typed
+        conditions. Executed predicate: `ownedBook AND activeTransaction AND (filter)`.
+
+        **Pagination.** Bounded offset paging for every sort (`page.offset` <= 100000, else
+        `PAGE_OFFSET_LIMIT_EXCEEDED`; the server never truncates silently). `totalCount` and `items`
+        of one response share a snapshot, but consecutive pages are NOT a cross-request snapshot:
+        reset to offset 0 after any mutation, on refresh, and when `queryFingerprint` changes.
+        The GET cursor contract is unchanged.
+
+        See docs/transaction-query.md for the field/operator matrix, null and text semantics.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransactionSearchRequest" }
+            example:
+              filter:
+                kind: group
+                op: AND
+                children:
+                  - { kind: condition, field: type, operator: EQ, value: EXPENSE }
+                  - kind: group
+                    op: OR
+                    children:
+                      - { kind: condition, field: description, operator: CONTAINS, value: coffee }
+                      - { kind: condition, field: amountMinor, operator: GTE, value: 10000 }
+              sort:
+                - { field: amountMinor, direction: DESC }
+              page: { offset: 0, limit: 50 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransactionSearchResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { description: Request body larger than 64 KiB (REQUEST_TOO_LARGE) }
+
+  /v1/books/{bookId}/transactions/analyze:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      tags: [Transactions]
+      summary: Aggregate every transaction matching a filter inside an explicit ledger-date window
+      description: |
+        Final predicate: `filter AND occurredOn BETWEEN window` (returned as `effectiveFilter`).
+        Totals, category totals, bucket totals, category-by-bucket cells and the largest expense are
+        computed in PostgreSQL over all matching rows in one repeatable-read snapshot. Not cached.
+
+        Amounts are positive minor units by INCOME/EXPENSE; `netMinor = income - expense`; the
+        opening balance is not included. `monthlyBudgets` is present only when the window is exactly
+        one full calendar month and holds full-month targets, not filtered allowances.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransactionAnalyzeRequest" }
+            example:
+              filter: { kind: group, op: AND, children: [] }
+              bucket: MONTH
+              window: { startDate: "2025-01-01", endDate: "2025-12-31" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransactionAnalysisResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { description: Request body larger than 64 KiB (REQUEST_TOO_LARGE) }
+        "422":
+          {
+            description: ANALYSIS_TOO_LARGE (categories x buckets > 20000) or AMOUNT_TOTAL_UNSUPPORTED (a total exceeds 2^53-1)
+          }
+
+  /v1/books/{bookId}/transactions/export/query:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      tags: [Transactions]
+      summary: Export every transaction matching a filter to .xlsx (synchronous)
+      description: |
+        Same `filter` and `sort` as search; exports ALL matching rows (not the visible page) in stable
+        order using the existing .xlsx layout. Limits: 50000 rows and 20 MB, otherwise
+        `422 EXPORT_TOO_LARGE` with advice to narrow the filter. Cells are literal values.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransactionQuery" }
+      responses:
+        "200":
+          description: OK - .xlsx file
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { description: Request body larger than 64 KiB (REQUEST_TOO_LARGE) }
+        "422": { description: EXPORT_TOO_LARGE }
+
+  /v1/books/{bookId}/filter-proposals:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      tags: [AI Filters]
+      summary: Propose a filter from a natural-language question ("Describe your filter")
+      description: |
+        Turns a <=500 character question into a complete replacement filter proposal, validated
+        through the same field/operator/limit rules as the manual advanced builder (see
+        docs/transaction-query.md and docs/ai-filter-proposals.md) plus category-ownership checks.
+        Nothing is applied server-side: the client reviews/edits the returned `filter` before Apply,
+        exactly like a hand-built filter, and Apply replaces (never merges with) the current filter.
+
+        Off by default (`AI_FILTERS_ENABLED` + `GEMINI_API_KEY`); disabled or unconfigured returns
+        503. Rate-limited per user, both per-minute and per-day; either returns 429 with a
+        `Retry-After` header.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FilterProposalRequest" }
+            example:
+              text: "Groceries over $50 last month"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FilterProposalResponse" }
+              examples:
+                proposal:
+                  summary: A filterable question
+                  value:
+                    status: PROPOSAL
+                    filter:
+                      kind: group
+                      op: AND
+                      children:
+                        - {
+                            kind: condition,
+                            field: categoryName,
+                            operator: CONTAINS,
+                            value: groceries
+                          }
+                        - { kind: condition, field: amountMinor, operator: GTE, value: 5000 }
+                        - {
+                            kind: condition,
+                            field: occurredOn,
+                            operator: BETWEEN,
+                            value: ["2026-05-01", "2026-05-31"]
+                          }
+                    sort: []
+                    summary: 'category name contains "groceries" and amount is at least 50.00 USD and date is between 2026-05-01 and 2026-05-31'
+                    clarification: null
+                    limitation: null
+                clarify:
+                  summary: An ambiguous question
+                  value:
+                    {
+                      status: CLARIFY,
+                      filter: null,
+                      sort: null,
+                      summary: null,
+                      clarification: "Which time range did you mean?",
+                      limitation: null
+                    }
+                unsupported:
+                  summary: A question outside what a filter can express
+                  value:
+                    {
+                      status: UNSUPPORTED,
+                      filter: null,
+                      sort: null,
+                      summary: null,
+                      clarification: null,
+                      limitation: "That request isn't something this filter can express. Use the manual filter builder."
+                    }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422":
+          {
+            description: "AI_FILTER_INVALID, AI_FILTER_INVALID_CATEGORY, AI_FILTER_TOO_MANY_CATEGORIES, or AI_FILTER_REFUSED"
+          }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "502":
+          { description: "AI_FILTER_PROVIDER_ERROR (malformed or unreadable provider response)" }
+        "503":
+          {
+            description: "AI_FILTERS_DISABLED (feature off or unconfigured), or AI_FILTER_PROVIDER_BUSY (provider itself rate-limited)"
+          }
+        "504": { description: "AI_FILTER_TIMEOUT (provider call exceeded its timeout)" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    BookId:
+      name: bookId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    CategoryId:
+      name: categoryId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TxId:
+      name: txId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+        example: '"3"'
+      description: ETag value from prior GET (optimistic concurrency)
+    OptionalIfMatch:
+      name: If-Match
+      in: header
+      required: false
+      schema:
+        type: string
+        example: '"3"'
+      description: Optional ETag value for optimistic concurrency when updating an existing resource
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        maxLength: 200
+      description: Prevent duplicate inserts on retries. Reusing the same key with the same request replays the stored response; reusing it with a different request returns 409.
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    PreconditionFailed:
+      description: Precondition Failed (ETag mismatch)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    TooManyRequests:
+      description: >-
+        Too Many Requests. Any endpoint can return this with code `RATE_LIMITED` when the caller's
+        token bucket is empty (per user, or per client IP for `/v1/auth/**`) or the global bucket
+        is; the AI filter endpoint also has its own codes.
+      headers:
+        Retry-After:
+          description: Seconds until the client may retry.
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: "VALIDATION_ERROR" }
+            message: { type: string, example: "Invalid request" }
+            details:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            requestId: { type: string, example: "01HZX..." }
+      required: [error]
+
+    TransactionType:
+      type: string
+      enum: [INCOME, EXPENSE]
+
+    CategoryType:
+      type: string
+      enum: [INCOME, EXPENSE]
+
+    PaymentMethod:
+      type: string
+      enum: [CASH, CARD, BANK_TRANSFER, WALLET, OTHER]
+
+    AuthRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 320 }
+        password: { type: string, minLength: 8, maxLength: 128 }
+        defaultCurrencyCode: { type: string, pattern: "^[A-Za-z]{3}$", example: "USD" }
+
+    GoogleAuthRequest:
+      type: object
+      required: [idToken]
+      properties:
+        idToken:
+          {
+            type: string,
+            maxLength: 4096,
+            description: Google ID token from the native sign-in SDK
+          }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 320 }
+        password: { type: string, maxLength: 128 }
+
+    AuthResponse:
+      type: object
+      required: [accessToken, tokenType, expiresInSeconds, user]
+      properties:
+        accessToken: { type: string }
+        tokenType: { type: string, example: "Bearer" }
+        expiresInSeconds: { type: integer, format: int64, example: 3600 }
+        user: { $ref: "#/components/schemas/MeResponse" }
+
+    MeResponse:
+      type: object
+      required: [id, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email, nullable: true }
+        displayName: { type: string, nullable: true, maxLength: 40, example: "Sam" }
+        defaultCurrencyCode: { type: string, nullable: true, example: "USD" }
+        createdAt: { type: string, format: date-time }
+
+    BookIcon:
+      type: string
+      enum: [book, briefcase, airplane, home, car, heart, family, education, cart]
+      default: book
+      description: Lowercase persisted key. The UI more-icons tile is not an icon key.
+
+    BookColor:
+      type: string
+      enum: [green, purple, orange, blue, red, pink]
+      default: green
+      description: >-
+        Lowercase persisted key, not a hex value. Clients own theme mapping.
+        Approximate design references only (not validation values): green ~ #16A34A,
+        purple ~ #8B5CF6, orange ~ #F97316, blue ~ #3B82F6, red ~ #EF4444, pink ~ #F472B6.
+
+    BookIconInput:
+      type: string
+      nullable: true
+      enum: [book, briefcase, airplane, home, car, heart, family, education, cart, null]
+      description: Request form of BookIcon. Null uses the default on create and leaves the value unchanged on update.
+
+    BookColorInput:
+      type: string
+      nullable: true
+      enum: [green, purple, orange, blue, red, pink, null]
+      description: Request form of BookColor. Null uses the default on create and leaves the value unchanged on update.
+
+    BookOrderRequest:
+      type: object
+      required: [bookIds]
+      properties:
+        bookIds:
+          type: array
+          uniqueItems: true
+          items: { type: string, format: uuid }
+          description: Exactly all active owned book IDs in the desired order, including existing accounts above the creation cap.
+
+    BookCreateRequest:
+      type: object
+      required: [name, currencyCode, timezone]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Must not be whitespace-only. Stored without trimming; surrounding whitespace counts toward the limit. Duplicate names are allowed.
+        currencyCode:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: USD
+          description: Nonblank, exactly three characters, stored unchanged. Lowercase and unrecognized codes remain accepted; clients should send recognized uppercase codes.
+        timezone: { type: string, example: "America/Chicago" }
+        openingBalanceMinor:
+          type: integer
+          format: int64
+          default: 0
+          description: >-
+            Optional signed integer minor units; negative values are accepted. Clients should
+            stay within +/- 9007199254740991 because larger magnitudes are not safe for
+            JavaScript clients. This recommendation is not a server-enforced cap.
+            Very large values may overflow balance arithmetic. Opening balance is excluded
+            from income/spending summaries and transaction-only import/export.
+        icon: { $ref: "#/components/schemas/BookIconInput" }
+        color: { $ref: "#/components/schemas/BookColorInput" }
+
+    BookUpdateRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80, nullable: true }
+        icon: { $ref: "#/components/schemas/BookIconInput" }
+        color: { $ref: "#/components/schemas/BookColorInput" }
+
+    BookResponse:
+      type: object
+      required:
+        [
+          id,
+          name,
+          currencyCode,
+          timezone,
+          openingBalanceMinor,
+          createdAt,
+          updatedAt,
+          version,
+          icon,
+          color,
+          sortOrder,
+          balanceMinor
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        currencyCode: { type: string }
+        timezone: { type: string }
+        openingBalanceMinor: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        deletedAt: { type: string, format: date-time, nullable: true }
+        version: { type: integer, format: int64 }
+        icon: { $ref: "#/components/schemas/BookIcon" }
+        color: { $ref: "#/components/schemas/BookColor" }
+        sortOrder:
+          type: integer
+          format: int64
+          description: Zero-based position after reorder; deletion can leave gaps.
+        balanceMinor:
+          type: integer
+          format: int64
+          description: Opening balance plus active income minus active expenses, in integer minor units. Clients should stay within +/- 9007199254740991 for JavaScript precision; very large values can overflow balance arithmetic.
+
+    CategoryCreateRequest:
+      type: object
+      required: [type, name]
+      properties:
+        type: { $ref: "#/components/schemas/CategoryType" }
+        name: { type: string, minLength: 1, maxLength: 60 }
+        icon: { type: string, maxLength: 64, nullable: true, example: "utensils" }
+        color: { type: string, pattern: "^#[0-9A-Fa-f]{6}$", nullable: true, example: "#EF4444" }
+
+    CategoryUpdateRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        isDisabled: { type: boolean }
+        icon: { type: string, maxLength: 64, nullable: true }
+        color:
+          type: string
+          pattern: '^(?:\s*|#[0-9A-Fa-f]{6})$'
+          nullable: true
+          description: A blank value clears the category color.
+
+    CategoryResponse:
+      type: object
+      required: [id, bookId, type, name, isDisabled, createdAt, updatedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        bookId: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/CategoryType" }
+        name: { type: string }
+        isDisabled: { type: boolean }
+        icon: { type: string, nullable: true }
+        color: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        deletedAt: { type: string, format: date-time, nullable: true }
+        version: { type: integer, format: int64 }
+
+    TransactionCreateRequest:
+      type: object
+      description: |
+        Audit fields (`id`, `createdAt`, `updatedAt`, `version`, `externalId`, ...) are server-controlled;
+        any unknown property is rejected with 400 VALIDATION_ERROR. `externalId` is only assigned by import.
+      required: [type, amountMinor, categoryId]
+      additionalProperties: false
+      properties:
+        type: { $ref: "#/components/schemas/TransactionType" }
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 999999999999999
+          description: Integer minor units of the book currency (cents for USD, whole yen for JPY). See MoneyLimits.
+        occurredOn:
+          type: string
+          format: date
+          description: |
+            Canonical ledger date in the book timezone; lists, summaries and budgets group by this.
+            Required when occurredAt is omitted. When both are sent they must name the same book-local day.
+        occurredAt:
+          type: string
+          format: date-time
+          description: |
+            Event instant. If provided without occurredOn, occurredOn is derived in the book timezone.
+            If omitted, stored as occurredOn at book-local midnight. Persisted as a UTC instant.
+        title:
+          { type: string, maxLength: 120, nullable: true, description: Blank is stored as null. }
+        categoryId: { type: string, format: uuid }
+        paymentMethod:
+          allOf: [{ $ref: "#/components/schemas/PaymentMethod" }]
+          nullable: true
+          description: Omitted or null is stored as null ("Not specified"); never defaulted to CASH.
+        note:
+          { type: string, maxLength: 280, nullable: true, description: Blank is stored as null. }
+
+    TransactionUpdateRequest:
+      type: object
+      description: See PATCH /v1/books/{bookId}/transactions/{txId} for presence semantics (omitted = unchanged, null clears nullable fields only).
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        type: { $ref: "#/components/schemas/TransactionType" }
+        amountMinor: { type: integer, format: int64, minimum: 1, maximum: 999999999999999 }
+        occurredOn:
+          {
+            type: string,
+            format: date,
+            description: Book-local ledger date. Explicit null rejected.
+          }
+        occurredAt:
+          { type: string, format: date-time, description: Event instant. Explicit null rejected. }
+        title: { type: string, maxLength: 120, nullable: true, description: null or blank clears. }
+        categoryId: { type: string, format: uuid }
+        paymentMethod:
+          allOf: [{ $ref: "#/components/schemas/PaymentMethod" }]
+          nullable: true
+          description: null clears ("Not specified").
+        note: { type: string, maxLength: 280, nullable: true, description: null or blank clears. }
+
+    TransactionCategoryRef:
+      type: object
+      required: [id, name, type]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        type: { $ref: "#/components/schemas/CategoryType" }
+
+    TransactionResponse:
+      type: object
+      required:
+        [
+          id,
+          bookId,
+          type,
+          amountMinor,
+          occurredOn,
+          categoryId,
+          category,
+          createdAt,
+          updatedAt,
+          version
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        bookId: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/TransactionType" }
+        amountMinor: { type: integer, format: int64 }
+        occurredOn: { type: string, format: date, description: Canonical book-local ledger date. }
+        occurredAt:
+          { type: string, format: date-time, nullable: true, description: Event instant (UTC). }
+        title: { type: string, nullable: true }
+        categoryId: { type: string, format: uuid }
+        category: { $ref: "#/components/schemas/TransactionCategoryRef" }
+        paymentMethod:
+          allOf: [{ $ref: "#/components/schemas/PaymentMethod" }]
+          nullable: true
+          description: null means not specified; clients must display it as such, never as CASH.
+        note: { type: string, nullable: true }
+        externalId:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Import identifier used for duplicate detection. Read-only; never accepted in requests.
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Record creation instant. Immutable (DB trigger); distinct from occurredAt/occurredOn.
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Advances only when a write actually changed the row.
+        deletedAt: { type: string, format: date-time, nullable: true, readOnly: true }
+        version:
+          type: integer
+          format: int64
+          readOnly: true
+          description: Optimistic-concurrency token, echoed as the ETag. Unchanged by no-op writes.
+
+    CursorPage_TransactionResponse:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TransactionResponse" }
+        nextCursor:
+          type: string
+          nullable: true
+
+    TransactionListResponse:
+      type: object
+      required: [page]
+      properties:
+        page:
+          $ref: "#/components/schemas/CursorPage_TransactionResponse"
+
+    QueryField:
+      type: string
+      description: |
+        Filterable and sortable fields. Not available: book (endpoint scope), deletedAt (always null),
+        version (concurrency token). `description` is virtual: title OR note.
+      enum:
+        [
+          id,
+          type,
+          amountMinor,
+          occurredOn,
+          occurredAt,
+          categoryId,
+          categoryName,
+          paymentMethod,
+          title,
+          note,
+          description,
+          createdAt,
+          updatedAt,
+          externalId
+        ]
+
+    FilterOperator:
+      type: string
+      enum:
+        [
+          EQ,
+          NE,
+          IN,
+          NOT_IN,
+          GT,
+          GTE,
+          LT,
+          LTE,
+          BETWEEN,
+          CONTAINS,
+          NOT_CONTAINS,
+          STARTS_WITH,
+          ENDS_WITH,
+          IS_NULL,
+          IS_NOT_NULL
+        ]
+      description: |
+        Field/operator matrix (see docs/transaction-query.md):
+        UUID and ENUM fields (id, type, categoryId, paymentMethod): EQ, NE, IN, NOT_IN.
+        NUMBER/DATE/TIMESTAMP fields (amountMinor, occurredOn, occurredAt, createdAt, updatedAt):
+        EQ, NE, GT, GTE, LT, LTE, BETWEEN (inclusive).
+        TEXT fields (categoryName, title, note, description, externalId): EQ, NE, CONTAINS,
+        NOT_CONTAINS, STARTS_WITH, ENDS_WITH (literal, case-insensitive; % _ \ are ordinary characters).
+        IS_NULL/IS_NOT_NULL only on nullable fields: occurredAt, paymentMethod, title, note, externalId.
+        Non-null comparisons (including NE, NOT_IN, NOT_CONTAINS) exclude null values.
+
+    FilterNode:
+      description: Recursive filter AST. Max depth 3, 30 conditions, 100 IN values, 280 characters per text value.
+      oneOf:
+        - $ref: "#/components/schemas/FilterGroup"
+        - $ref: "#/components/schemas/FilterCondition"
+      discriminator:
+        propertyName: kind
+        mapping:
+          group: "#/components/schemas/FilterGroup"
+          condition: "#/components/schemas/FilterCondition"
+
+    FilterGroup:
+      type: object
+      required: [kind, op, children]
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [group] }
+        op: { type: string, enum: [AND, OR] }
+        children:
+          type: array
+          description: Empty only for the top-level AND (meaning all active rows of the book).
+          items: { $ref: "#/components/schemas/FilterNode" }
+
+    FilterCondition:
+      type: object
+      required: [kind, field, operator]
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [condition] }
+        field: { $ref: "#/components/schemas/QueryField" }
+        operator: { $ref: "#/components/schemas/FilterOperator" }
+        value:
+          description: |
+            UUID string, enum name, integer minor units (0..999999999999999), YYYY-MM-DD, ISO-8601
+            timestamp with offset, or non-empty text. IN/NOT_IN: non-empty array (<= 100).
+            BETWEEN: [lower, upper]. Omitted for IS_NULL/IS_NOT_NULL.
+          oneOf:
+            - { type: string }
+            - { type: integer, format: int64 }
+            - type: array
+              items:
+                oneOf: [{ type: string }, { type: integer, format: int64 }]
+
+    SortKey:
+      type: object
+      required: [field, direction]
+      additionalProperties: false
+      properties:
+        field: { $ref: "#/components/schemas/QueryField" }
+        direction: { type: string, enum: [ASC, DESC] }
+
+    TransactionQuery:
+      type: object
+      additionalProperties: false
+      properties:
+        filter:
+          $ref: "#/components/schemas/FilterNode"
+        sort:
+          type: array
+          maxItems: 3
+          description: Default occurredOn DESC, createdAt DESC, id DESC. `id ASC` is appended as tie-breaker when absent. Text sorts are case-normalized; nullable fields use NULLS LAST in both directions; description sorts by coalesced title then note.
+          items: { $ref: "#/components/schemas/SortKey" }
+
+    TransactionSearchRequest:
+      allOf:
+        - $ref: "#/components/schemas/TransactionQuery"
+        - type: object
+          properties:
+            page:
+              type: object
+              additionalProperties: false
+              properties:
+                offset: { type: integer, minimum: 0, maximum: 100000, default: 0 }
+                limit: { type: integer, minimum: 1, maximum: 200, default: 50 }
+
+    TransactionSearchResponse:
+      type: object
+      required: [items, totalCount, page, queryFingerprint]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TransactionResponse" }
+        totalCount: { type: integer, format: int64, description: All rows matching the filter. }
+        page:
+          type: object
+          required: [offset, limit, hasMore]
+          properties:
+            offset: { type: integer }
+            limit: { type: integer }
+            hasMore: { type: boolean }
+        queryFingerprint:
+          type: string
+          description: SHA-256 of the normalized filter + applied sort (not the page). Reset paging when it changes.
+
+    TransactionAnalyzeRequest:
+      type: object
+      required: [bucket, window]
+      additionalProperties: false
+      properties:
+        filter: { $ref: "#/components/schemas/FilterNode" }
+        bucket: { type: string, enum: [DAY, MONTH, YEAR] }
+        window:
+          type: object
+          required: [startDate, endDate]
+          additionalProperties: false
+          description: Inclusive occurredOn window, at most 5 years.
+          properties:
+            startDate: { type: string, format: date }
+            endDate: { type: string, format: date }
+
+    TransactionAnalysisResponse:
+      type: object
+      required:
+        [
+          bookId,
+          currencyCode,
+          bucket,
+          window,
+          effectiveFilter,
+          queryFingerprint,
+          matchedCount,
+          incomeTotalMinor,
+          expenseTotalMinor,
+          netMinor,
+          categories,
+          buckets,
+          categoryBuckets
+        ]
+      properties:
+        bookId: { type: string, format: uuid }
+        currencyCode: { type: string }
+        bucket: { type: string, enum: [DAY, MONTH, YEAR] }
+        window:
+          type: object
+          properties:
+            startDate: { type: string, format: date }
+            endDate: { type: string, format: date }
+        effectiveFilter:
+          $ref: "#/components/schemas/FilterNode"
+        queryFingerprint: { type: string }
+        matchedCount: { type: integer, format: int64 }
+        incomeTotalMinor: { type: integer, format: int64 }
+        expenseTotalMinor: { type: integer, format: int64 }
+        netMinor:
+          {
+            type: integer,
+            format: int64,
+            description: income - expense of the matches. Opening balance is not included.
+          }
+        categories:
+          type: array
+          items:
+            type: object
+            required: [categoryId, categoryName, type, totalMinor, count]
+            properties:
+              categoryId: { type: string, format: uuid }
+              categoryName: { type: string }
+              type: { $ref: "#/components/schemas/TransactionType" }
+              totalMinor: { type: integer, format: int64 }
+              count: { type: integer, format: int64 }
+              percentOfExpense:
+                type: number
+                nullable: true
+                description: Share of the FILTERED expense total (0-100, 2 decimals); null for income or a zero denominator.
+        buckets:
+          type: array
+          description: Every period of the window, zero buckets included.
+          items:
+            type: object
+            required:
+              [key, start, end, partial, incomeTotalMinor, expenseTotalMinor, netMinor, count]
+            properties:
+              key: { type: string, description: "YYYY-MM-DD, YYYY-MM or YYYY" }
+              start: { type: string, format: date, description: Clipped to the window. }
+              end: { type: string, format: date, description: Clipped to the window. }
+              partial:
+                {
+                  type: boolean,
+                  description: True when the calendar period is only partly inside the window.
+                }
+              incomeTotalMinor: { type: integer, format: int64 }
+              expenseTotalMinor: { type: integer, format: int64 }
+              netMinor: { type: integer, format: int64 }
+              count: { type: integer, format: int64 }
+        categoryBuckets:
+          type: array
+          description: Dense categories x buckets cells (zeros included), capped at 20000 (else 422 ANALYSIS_TOO_LARGE).
+          items:
+            type: object
+            required: [categoryId, type, bucketKey, totalMinor, count]
+            properties:
+              categoryId: { type: string, format: uuid }
+              type: { $ref: "#/components/schemas/TransactionType" }
+              bucketKey: { type: string }
+              totalMinor: { type: integer, format: int64 }
+              count: { type: integer, format: int64 }
+        largestExpense:
+          allOf: [{ $ref: "#/components/schemas/TransactionResponse" }]
+          nullable: true
+        monthlyBudgets:
+          type: object
+          nullable: true
+          description: Present only when the window is exactly one full calendar month. Full-month targets, not filtered allowances.
+          properties:
+            month: { type: string, example: "2025-04" }
+            label: { type: string }
+            items:
+              type: array
+              items:
+                type: object
+                properties:
+                  categoryId: { type: string, format: uuid }
+                  categoryName: { type: string }
+                  amountMinor: { type: integer, format: int64 }
+
+    FilterProposalRequest:
+      type: object
+      required: [text]
+      additionalProperties: false
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: "Groceries over $50 last month"
+
+    FilterProposalResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [PROPOSAL, CLARIFY, UNSUPPORTED]
+        filter:
+          type: object
+          allOf: [{ $ref: "#/components/schemas/FilterNode" }]
+          nullable: true
+          description: Set only for PROPOSAL - the same shape as TransactionAnalysisResponse.effectiveFilter.
+        sort:
+          type: array
+          nullable: true
+          maxItems: 1
+          description: Set only for PROPOSAL, and only when the question implied an order.
+          items: { $ref: "#/components/schemas/SortKey" }
+        summary:
+          type: string
+          nullable: true
+          description: Set only for PROPOSAL. Generated server-side from the validated filter, never model prose.
+        clarification:
+          type: string
+          nullable: true
+          description: Set only for CLARIFY - a one-sentence ask to rephrase.
+        limitation:
+          type: string
+          nullable: true
+          description: Set for UNSUPPORTED, or as a side note alongside a PROPOSAL.
+
+    BudgetUpsertRequest:
+      type: object
+      required: [amountMinor]
+      properties:
+        amountMinor: { type: integer, format: int64, minimum: 0 }
+
+    BudgetResponse:
+      type: object
+      required:
+        [
+          id,
+          bookId,
+          categoryId,
+          categoryName,
+          month,
+          amountMinor,
+          spentMinor,
+          remainingMinor,
+          currencyCode,
+          createdAt,
+          updatedAt,
+          version
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        bookId: { type: string, format: uuid }
+        categoryId: { type: string, format: uuid }
+        categoryName: { type: string }
+        month: { type: string, example: "2026-01" }
+        amountMinor: { type: integer, format: int64 }
+        spentMinor: { type: integer, format: int64 }
+        remainingMinor: { type: integer, format: int64 }
+        currencyCode: { type: string, example: "USD" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+
+    BalanceResponse:
+      type: object
+      required: [bookId, currencyCode, balanceMinor]
+      properties:
+        bookId: { type: string, format: uuid }
+        currencyCode: { type: string, example: "USD" }
+        balanceMinor: { type: integer, format: int64 }
+
+    CategoryBreakdownItem:
+      type: object
+      required: [categoryId, totalMinor, transactionCount]
+      properties:
+        categoryId: { type: string, format: uuid }
+        categoryName: { type: string, nullable: true }
+        type: { $ref: "#/components/schemas/CategoryType" }
+        totalMinor: { type: integer, format: int64 }
+        budgetMinor: { type: integer, format: int64, nullable: true }
+        transactionCount: { type: integer, format: int64 }
+
+    MonthlySummaryResponse:
+      type: object
+      required: [bookId, month, currencyCode, incomeTotalMinor, expenseTotalMinor, byCategory]
+      properties:
+        bookId: { type: string, format: uuid }
+        month: { type: string, example: "2026-01" }
+        currencyCode: { type: string, example: "USD" }
+        incomeTotalMinor: { type: integer, format: int64 }
+        expenseTotalMinor: { type: integer, format: int64 }
+        byCategory:
+          type: array
+          items: { $ref: "#/components/schemas/CategoryBreakdownItem" }
+
+    DailyBreakdownItem:
+      type: object
+      required: [date, incomeTotalMinor, expenseTotalMinor]
+      properties:
+        date: { type: string, format: date }
+        incomeTotalMinor: { type: integer, format: int64 }
+        expenseTotalMinor: { type: integer, format: int64 }
+
+    RangeSummaryResponse:
+      type: object
+      required:
+        [
+          bookId,
+          startDate,
+          endDate,
+          currencyCode,
+          incomeTotalMinor,
+          expenseTotalMinor,
+          transactionCount,
+          byCategory,
+          byDay
+        ]
+      properties:
+        bookId: { type: string, format: uuid }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        currencyCode: { type: string, example: "USD" }
+        incomeTotalMinor: { type: integer, format: int64 }
+        expenseTotalMinor: { type: integer, format: int64 }
+        transactionCount: { type: integer, format: int64 }
+        byCategory:
+          type: array
+          items: { $ref: "#/components/schemas/CategoryBreakdownItem" }
+        byDay:
+          type: array
+          items: { $ref: "#/components/schemas/DailyBreakdownItem" }
+
+    ImportRowError:
+      type: object
+      required: [rowNumber, code, message]
+      properties:
+        rowNumber: { type: integer, description: "1-indexed spreadsheet row (header = row 1)" }
+        code: { type: string, example: "AMOUNT_TYPE_MISMATCH" }
+        message: { type: string }
+
+    ImportResult:
+      type: object
+      required:
+        [
+          totalRows,
+          importedCount,
+          skippedBlankCount,
+          skippedDuplicateCount,
+          failedCount,
+          categoriesCreated,
+          errors
+        ]
+      properties:
+        totalRows: { type: integer }
+        importedCount: { type: integer }
+        skippedBlankCount: { type: integer }
+        skippedDuplicateCount: { type: integer }
+        failedCount: { type: integer }
+        categoriesCreated:
+          type: array
+          items: { type: string }
+        errors:
+          type: array
+          items: { $ref: "#/components/schemas/ImportRowError" }
