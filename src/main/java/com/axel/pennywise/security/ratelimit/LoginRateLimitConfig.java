@@ -9,7 +9,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnProperty(name = "app.login-rate-limit.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(
+    name = "app.login-rate-limit.enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 public class LoginRateLimitConfig {
   @Bean
   FilterRegistrationBean<LoginRateLimitFilter> loginRateLimitFilter(

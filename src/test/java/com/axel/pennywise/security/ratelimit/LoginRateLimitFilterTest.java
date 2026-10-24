@@ -12,7 +12,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 class LoginRateLimitFilterTest {
   @Test
-  void distributedAddressesCannotBypassGlobalBudgetAndNoRejectedRequestReachesDb() throws Exception {
+  void distributedAddressesCannotBypassGlobalBudgetAndNoRejectedRequestReachesDb()
+      throws Exception {
     var time = new AtomicLong();
     var meters = new SimpleMeterRegistry();
     var filter = new LoginRateLimitFilter(0.5, meters, time::get);
@@ -28,8 +29,13 @@ class LoginRateLimitFilterTest {
       }
     }
     assertThat(entered.get()).isEqualTo(1);
-    assertThat(meters.get("http.login.admission.requests").tag("outcome", "rejected")
-        .counter().count()).isEqualTo(99);
+    assertThat(
+            meters
+                .get("http.login.admission.requests")
+                .tag("outcome", "rejected")
+                .counter()
+                .count())
+        .isEqualTo(99);
     time.set(2_000_000_000L);
     var next = new MockHttpServletRequest("POST", "/v1/auth/login");
     next.setRemoteAddr("198.18.1.1");
@@ -50,7 +56,12 @@ class LoginRateLimitFilterTest {
     var request = new MockHttpServletRequest("POST", "/v1/auth/login");
     request.setRemoteAddr("198.18.0.1");
     var response = new MockHttpServletResponse();
-    filter.doFilter(request, response, (req, res) -> { throw new AssertionError("must reject"); });
+    filter.doFilter(
+        request,
+        response,
+        (req, res) -> {
+          throw new AssertionError("must reject");
+        });
     assertThat(response.getStatus()).isEqualTo(429);
   }
 
@@ -58,7 +69,9 @@ class LoginRateLimitFilterTest {
   void optionsDoesNotConsumeTheBudget() throws Exception {
     var filter = new LoginRateLimitFilter(0.5, new SimpleMeterRegistry());
     var response = new MockHttpServletResponse();
-    filter.doFilter(new MockHttpServletRequest("OPTIONS", "/v1/auth/login"), response,
+    filter.doFilter(
+        new MockHttpServletRequest("OPTIONS", "/v1/auth/login"),
+        response,
         (req, res) -> res.setContentType("text/plain"));
     assertThat(response.getStatus()).isEqualTo(200);
   }

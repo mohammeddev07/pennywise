@@ -13,11 +13,11 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.dao.DataAccessResourceFailureException;
-import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -35,7 +35,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-  @ExceptionHandler({CannotCreateTransactionException.class, DataAccessResourceFailureException.class})
+  @ExceptionHandler({
+    CannotCreateTransactionException.class,
+    DataAccessResourceFailureException.class
+  })
   public ResponseEntity<ErrorResponse> handleDatabaseUnavailable(RuntimeException ex) {
     log.warn("Database connection unavailable");
     return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)

@@ -2,8 +2,8 @@ package com.axel.pennywise.security.admission;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -25,8 +25,15 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@SpringBootTest(properties = {"app.security.auth-enabled=true", "app.admission.enabled=true",
-    "app.admission.max-in-flight=1", "app.login-rate-limit.enabled=true", "app.rate-limit.enabled=false"})
+@SpringBootTest(
+    properties = {
+      "app.security.auth-enabled=true",
+      "app.admission.enabled=true",
+      "app.admission.max-in-flight=1",
+      "app.login-rate-limit.enabled=true",
+      "management.endpoint.health.probes.enabled=true",
+      "app.rate-limit.enabled=false"
+    })
 @AutoConfigureMockMvc
 @Import(AdmissionApiIT.BlockingController.class)
 class AdmissionApiIT extends AbstractPostgresIT {
@@ -42,7 +49,8 @@ class AdmissionApiIT extends AbstractPostgresIT {
     @GetMapping("/v1/_capacity-test")
     String waitForRelease() throws InterruptedException {
       entered.countDown();
-      if (!release.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("test did not release");
+      if (!release.await(5, TimeUnit.SECONDS))
+        throw new IllegalStateException("test did not release");
       return "ok";
     }
   }
@@ -50,8 +58,13 @@ class AdmissionApiIT extends AbstractPostgresIT {
   @Test
   void overloadIsRejectedBeforeAuthenticationAndHealthRemainsAvailable() throws Exception {
     try (var executor = Executors.newSingleThreadExecutor()) {
-      var first = executor.submit(() -> mvc.perform(get("/v1/_capacity-test").with(jwt()))
-          .andReturn().getResponse().getStatus());
+      var first =
+          executor.submit(
+              () ->
+                  mvc.perform(get("/v1/_capacity-test").with(jwt()))
+                      .andReturn()
+                      .getResponse()
+                      .getStatus());
       try {
         assertThat(blocking.entered.await(2, TimeUnit.SECONDS)).isTrue();
         var response = mvc.perform(get("/v1/_capacity-test")).andReturn().getResponse();
@@ -69,9 +82,15 @@ class AdmissionApiIT extends AbstractPostgresIT {
   void distributedLoginAttemptsAreLimitedBeforeTheController() throws Exception {
     for (int i = 0; i < 5; i++) {
       final int address = i;
-      mvc.perform(post("/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-          .content("{\"email\":\"perf@lab.invalid\",\"password\":\"password123\"}")
-          .with(request -> { request.setRemoteAddr("198.18.0."+address); return request; }))
+      mvc.perform(
+              post("/v1/auth/login")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"email\":\"perf@lab.invalid\",\"password\":\"password123\"}")
+                  .with(
+                      request -> {
+                        request.setRemoteAddr("198.18.0." + address);
+                        return request;
+                      }))
           .andExpect(status().is(i == 0 ? 200 : 429));
     }
     verify(auth, times(1)).login(anyString(), anyString());

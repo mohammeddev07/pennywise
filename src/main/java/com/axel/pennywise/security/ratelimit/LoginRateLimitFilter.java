@@ -18,7 +18,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 final class LoginRateLimitFilter extends OncePerRequestFilter {
   private static final byte[] LIMITED =
       ("{\"error\":{\"code\":\"RATE_LIMITED\",\"message\":\"Too many login attempts; retry later\","
-          + "\"details\":[],\"requestId\":null}}").getBytes(StandardCharsets.UTF_8);
+              + "\"details\":[],\"requestId\":null}}")
+          .getBytes(StandardCharsets.UTF_8);
   private final Cache<String, LocalTokenBucket> callers;
   private final LocalTokenBucket global;
   private final LongSupplier nanos;
@@ -35,22 +36,29 @@ final class LoginRateLimitFilter extends OncePerRequestFilter {
     }
     this.nanos = nanos;
     global = new LocalTokenBucket(1, perSecond, nanos.getAsLong());
-    callers = Caffeine.newBuilder().maximumSize(5000).expireAfterAccess(Duration.ofMinutes(10))
-        .ticker(nanos::getAsLong).build();
+    callers =
+        Caffeine.newBuilder()
+            .maximumSize(5000)
+            .expireAfterAccess(Duration.ofMinutes(10))
+            .ticker(nanos::getAsLong)
+            .build();
     allowed = meters.counter("http.login.admission.requests", "outcome", "allowed");
     rejected = meters.counter("http.login.admission.requests", "outcome", "rejected");
   }
 
   @Override
-  protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-      FilterChain chain) throws ServletException, IOException {
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+      throws ServletException, IOException {
     if (!"POST".equals(request.getMethod())) {
       chain.doFilter(request, response);
       return;
     }
     long now = nanos.getAsLong();
-    int retry = callers.get(request.getRemoteAddr(), ip -> new LocalTokenBucket(2, 0.1, now))
-        .tryConsume(1, now);
+    int retry =
+        callers
+            .get(request.getRemoteAddr(), ip -> new LocalTokenBucket(2, 0.1, now))
+            .tryConsume(1, now);
     if (retry == 0) retry = global.tryConsume(1, now);
     if (retry == 0) {
       allowed.increment();

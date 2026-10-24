@@ -16,8 +16,10 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void unavailableConnectionsReturnRetryable503WithoutDatabaseDetails() {
-    var response = handler.handleDatabaseUnavailable(
-        new org.springframework.transaction.CannotCreateTransactionException("private database URL"));
+    var response =
+        handler.handleDatabaseUnavailable(
+            new org.springframework.transaction.CannotCreateTransactionException(
+                "private database URL"));
     assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
     assertEquals("1", response.getHeaders().getFirst("Retry-After"));
     assertEquals("DATABASE_UNAVAILABLE", response.getBody().error().code());
