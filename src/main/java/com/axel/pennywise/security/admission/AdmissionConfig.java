@@ -17,7 +17,7 @@ public class AdmissionConfig {
     var registration = new FilterRegistrationBean<>(new AdmissionFilter(maxInFlight, meters));
     registration.addUrlPatterns("/v1/*");
     // After HTTP observation, before authentication, logging and database-backed rate limits.
-    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 3);
     return registration;
   }
 }
