@@ -32,6 +32,7 @@ class AuthServiceTest {
 
   @Mock private UserRepository userRepo;
   @Mock private GoogleTokenVerifier googleVerifier;
+  @Mock private com.axel.pennywise.domain.user.UserService userService;
 
   private AuthService service;
   private PasswordEncoder passwordEncoder;
@@ -45,7 +46,7 @@ class AuthServiceTest {
                 new SecretKeySpec(
                     "pennywise-auth-service-test-secret".getBytes(StandardCharsets.UTF_8),
                     "HmacSHA256")));
-    service = new AuthService(userRepo, passwordEncoder, jwtEncoder, googleVerifier);
+    service = new AuthService(userRepo, passwordEncoder, jwtEncoder, googleVerifier, userService);
     ReflectionTestUtils.setField(service, "issuer", "pennywise-test");
     ReflectionTestUtils.setField(service, "audience", "");
     ReflectionTestUtils.setField(service, "tokenTtlMinutes", 60L);
