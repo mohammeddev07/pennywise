@@ -77,6 +77,24 @@ class LoginRateLimitFilterTest {
   }
 
   @Test
+  void otherPostsDoNotConsumeLoginBudgetAndContextEncodedLoginCannotBypassIt() throws Exception {
+    var filter = new LoginRateLimitFilter(0.5, new SimpleMeterRegistry());
+    for (int i = 0; i < 5; i++) {
+      var other = new MockHttpServletRequest("POST", "/api/v1/books");
+      other.setContextPath("/api");
+      filter.doFilter(other, new MockHttpServletResponse(), (req, res) -> {});
+    }
+    for (int i = 0; i < 2; i++) {
+      var login = new MockHttpServletRequest("POST", "/api/v1/auth/%6cogin");
+      login.setContextPath("/api");
+      login.setRemoteAddr("198.18.0." + i);
+      var response = new MockHttpServletResponse();
+      filter.doFilter(login, response, (req, res) -> {});
+      assertThat(response.getStatus()).isEqualTo(i == 0 ? 200 : 429);
+    }
+  }
+
+  @Test
   void invalidBudgetsFailConfiguration() {
     assertThatThrownBy(() -> new LoginRateLimitFilter(0, new SimpleMeterRegistry()))
         .isInstanceOf(IllegalArgumentException.class);

@@ -13,9 +13,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.function.LongSupplier;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UrlPathHelper;
 
 /** Protects password hashing and the database-backed limiter on the single-instance free plan. */
-final class LoginRateLimitFilter extends OncePerRequestFilter {
+public final class LoginRateLimitFilter extends OncePerRequestFilter {
   private static final byte[] LIMITED =
       ("{\"error\":{\"code\":\"RATE_LIMITED\",\"message\":\"Too many login attempts; retry later\","
               + "\"details\":[],\"requestId\":null}}")
@@ -26,8 +27,21 @@ final class LoginRateLimitFilter extends OncePerRequestFilter {
   private final Counter allowed;
   private final Counter rejected;
 
-  LoginRateLimitFilter(double perSecond, MeterRegistry meters) {
+  public LoginRateLimitFilter(double perSecond, MeterRegistry meters) {
     this(perSecond, meters, System::nanoTime);
+  }
+
+  @Override
+  protected String getAlreadyFilteredAttributeName() {
+    return LoginRateLimitFilter.class.getName() + ALREADY_FILTERED_SUFFIX;
+  }
+
+  @Override
+  protected boolean shouldNotFilter(HttpServletRequest request) {
+    if (!"POST".equals(request.getMethod())) return true;
+    String path = request.getServletPath();
+    if (path.isEmpty()) path = UrlPathHelper.defaultInstance.getPathWithinApplication(request);
+    return !"/v1/auth/login".equals(path);
   }
 
   LoginRateLimitFilter(double perSecond, MeterRegistry meters, LongSupplier nanos) {
@@ -50,10 +64,6 @@ final class LoginRateLimitFilter extends OncePerRequestFilter {
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
-    if (!"POST".equals(request.getMethod())) {
-      chain.doFilter(request, response);
-      return;
-    }
     long now = nanos.getAsLong();
     int retry =
         callers

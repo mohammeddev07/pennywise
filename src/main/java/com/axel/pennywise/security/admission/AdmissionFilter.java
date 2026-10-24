@@ -12,7 +12,7 @@ import java.util.concurrent.Semaphore;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /** Bounds database-capable work without putting overload into another waiting queue. */
-final class AdmissionFilter extends OncePerRequestFilter {
+public final class AdmissionFilter extends OncePerRequestFilter {
   private static final byte[] BUSY =
       ("{\"error\":{\"code\":\"OVERLOADED\",\"message\":\"Server is busy; retry later\","
               + "\"details\":[],\"requestId\":null}}")
@@ -22,12 +22,18 @@ final class AdmissionFilter extends OncePerRequestFilter {
   private final Counter admitted;
   private final Counter rejected;
 
-  AdmissionFilter(int maxInFlight, MeterRegistry meters) {
+  public AdmissionFilter(int maxInFlight, MeterRegistry meters) {
     if (maxInFlight < 1) throw new IllegalArgumentException("maxInFlight must be positive");
     slots = new Semaphore(maxInFlight);
     admitted = meters.counter("http.admission.requests", "outcome", "admitted");
     rejected = meters.counter("http.admission.requests", "outcome", "rejected");
     meters.gauge("http.admission.inflight", slots, s -> maxInFlight - s.availablePermits());
+  }
+
+  @Override
+  protected String getAlreadyFilteredAttributeName() {
+    // CompositeFilter initializes its delegates with the same registration name.
+    return AdmissionFilter.class.getName() + ALREADY_FILTERED_SUFFIX;
   }
 
   @Override
