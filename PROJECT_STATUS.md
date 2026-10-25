@@ -347,13 +347,13 @@ branches have been opened since this update.
       `DateTimeParseException` (previously the one documented gap — malformed `from`/`to` produced
       a generic 500) in addition to the handlers already present.
 - [x] CORS configured for browser clients — **Done**: `CorsConfig` (`WebMvcConfigurer`) permits
-  GET/POST/PUT/PATCH/DELETE and Authorization/Content-Type/If-Match/Idempotency-Key/X-Request-Id
-  headers, exposes ETag/Retry-After/X-Request-Id/Content-Disposition, and reads comma-separated
-  origins from `APP_CORS_ALLOWED_ORIGINS` (defaults to `*`, since auth is bearer-token only with
-  no cookie/session state to protect). `SecurityConfig` enables `http.cors(...)`, so preflight
-  `OPTIONS` requests to authenticated routes are answered by the security chain instead of being
-  rejected with 401. Native mobile clients don't need this — it serves Swagger UI and the
-  PennyWise web app.
+      GET/POST/PUT/PATCH/DELETE and Authorization/Content-Type/If-Match/Idempotency-Key/X-Request-Id
+      headers, exposes ETag/Retry-After/X-Request-Id/Content-Disposition, and reads comma-separated
+      origins from `APP_CORS_ALLOWED_ORIGINS` (defaults to `*`, since auth is bearer-token only with
+      no cookie/session state to protect). `SecurityConfig` enables `http.cors(...)`, so preflight
+      `OPTIONS` requests to authenticated routes are answered by the security chain instead of being
+      rejected with 401. Native mobile clients don't need this — it serves Swagger UI and the
+      PennyWise web app.
 - [~] Pagination on list endpoints — **Partial, unchanged**: transactions have cursor pagination
   (1–200, default 50); books, categories, and budgets still return unbounded lists.
 - [x] User account/profile management — **New**: `PATCH /api/v1/me` updates `defaultCurrencyCode`.
