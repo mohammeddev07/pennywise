@@ -386,10 +386,9 @@ Most of the prior audit's readiness gaps are now closed:
 
 Remaining gaps before a real deployment:
 
-1. CORS: `feat/mvp-gap-fixes` adds a permissive, env-var-configurable `CorsConfig`, but (a) it
-   defaults to allowing all origins — decide whether to restrict `APP_CORS_ALLOWED_ORIGINS` before
-   relying on it in production, and (b) it only reliably applies to `permitAll` routes, not
-   authenticated ones (see Gaps, section 10). Native mobile clients don't need browser CORS at all.
+1. CORS: `CorsConfig` defaults to allowing all origins — set `APP_CORS_ALLOWED_ORIGINS` to the
+   web app's origins before relying on it in production (see Gaps, section 10). Native mobile
+   clients don't need browser CORS at all.
 2. Run Flyway plus Hibernate validation against a fresh **Supabase** project specifically (this
    audit verified against a local Testcontainers PostgreSQL instance, not Supabase's managed
    Postgres/SSL configuration) and confirm the `JDBC_URL` SSL parameters Supabase requires work

@@ -105,6 +105,9 @@ public class SecurityConfig {
                 "FORBIDDEN",
                 "Authenticated user is not allowed to access this resource");
 
+    // Run MVC's CorsConfig inside the security chain so browser preflights (which carry no
+    // Authorization header) are answered before authentication rejects them with 401.
+    http.cors(Customizer.withDefaults());
     http.csrf(csrf -> csrf.disable());
     http.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
     http.exceptionHandling(

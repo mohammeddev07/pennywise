@@ -15,9 +15,11 @@ public class CorsConfig implements WebMvcConfigurer {
   public void addCorsMappings(CorsRegistry registry) {
     registry
         .addMapping("/**")
-        .allowedOrigins(allowedOrigins.split(","))
-        .allowedMethods("GET", "POST", "PATCH", "DELETE")
-        .allowedHeaders("Authorization", "Content-Type", "If-Match", "Idempotency-Key")
+        .allowedOrigins(allowedOrigins.trim().split("\\s*,\\s*"))
+        .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE")
+        .allowedHeaders(
+            "Authorization", "Content-Type", "If-Match", "Idempotency-Key", "X-Request-Id")
+        .exposedHeaders("ETag", "Retry-After", "X-Request-Id", "Content-Disposition")
         .maxAge(3600);
   }
 }
