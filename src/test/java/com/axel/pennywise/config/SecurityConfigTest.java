@@ -1,8 +1,11 @@
 package com.axel.pennywise.config;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -69,6 +72,28 @@ class SecurityConfigTest {
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"))
         .andExpect(jsonPath("$.error.message").value("Missing, invalid, or expired bearer token"));
+  }
+
+  @Test
+  void corsPreflightOnProtectedEndpoint_isAllowedWithoutToken() throws Exception {
+    mockMvc
+        .perform(
+            options("/secure")
+                .header("Origin", "https://pennywise.example")
+                .header("Access-Control-Request-Method", "PUT")
+                .header("Access-Control-Request-Headers", "authorization,if-match"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Access-Control-Allow-Origin", "*"))
+        .andExpect(header().string("Access-Control-Allow-Methods", containsString("PUT")));
+  }
+
+  @Test
+  void corsActualRequest_exposesHeadersTheWebClientReads() throws Exception {
+    mockMvc
+        .perform(get("/secure").header("Origin", "https://pennywise.example").with(jwt()))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Access-Control-Expose-Headers", containsString("ETag")))
+        .andExpect(header().string("Access-Control-Expose-Headers", containsString("Retry-After")));
   }
 
   @Test

@@ -346,17 +346,14 @@ branches have been opened since this update.
 - [x] Consistent error response format — **Done**: `GlobalExceptionHandler` now maps
       `DateTimeParseException` (previously the one documented gap — malformed `from`/`to` produced
       a generic 500) in addition to the handlers already present.
-- [~] CORS configured for the mobile client — **Partial, on `feat/mvp-gap-fixes`**: new
-  `CorsConfig` (`WebMvcConfigurer`) permits GET/POST/PATCH/DELETE and
-  Authorization/Content-Type/If-Match/Idempotency-Key headers, origins from
-  `APP_CORS_ALLOWED_ORIGINS` (defaults to `*`, since auth is bearer-token only with no
-  cookie/session state to protect). Native mobile clients don't need this — it targets Swagger
-  UI / future web clients. It is MVC-level only and does **not** touch `SecurityConfig`, so a
-  browser preflight `OPTIONS` to an `anyRequest().authenticated()` route (i.e. most of the API
-  once auth is enabled) is still rejected by the security filter chain before reaching MVC's
-  CORS handling; it reliably works only for the already-`permitAll` routes (health, auth,
-  Springdoc). Extending it to authenticated routes needs a `SecurityConfig` change, deliberately
-  left out of this branch.
+- [x] CORS configured for browser clients — **Done**: `CorsConfig` (`WebMvcConfigurer`) permits
+      GET/POST/PUT/PATCH/DELETE and Authorization/Content-Type/If-Match/Idempotency-Key/X-Request-Id
+      headers, exposes ETag/Retry-After/X-Request-Id/Content-Disposition, and reads comma-separated
+      origins from `APP_CORS_ALLOWED_ORIGINS` (defaults to `*`, since auth is bearer-token only with
+      no cookie/session state to protect). `SecurityConfig` enables `http.cors(...)`, so preflight
+      `OPTIONS` requests to authenticated routes are answered by the security chain instead of being
+      rejected with 401. Native mobile clients don't need this — it serves Swagger UI and the
+      PennyWise web app.
 - [~] Pagination on list endpoints — **Partial, unchanged**: transactions have cursor pagination
   (1–200, default 50); books, categories, and budgets still return unbounded lists.
 - [x] User account/profile management — **New**: `PATCH /api/v1/me` updates `defaultCurrencyCode`.
@@ -386,10 +383,9 @@ Most of the prior audit's readiness gaps are now closed:
 
 Remaining gaps before a real deployment:
 
-1. CORS: `feat/mvp-gap-fixes` adds a permissive, env-var-configurable `CorsConfig`, but (a) it
-   defaults to allowing all origins — decide whether to restrict `APP_CORS_ALLOWED_ORIGINS` before
-   relying on it in production, and (b) it only reliably applies to `permitAll` routes, not
-   authenticated ones (see Gaps, section 10). Native mobile clients don't need browser CORS at all.
+1. CORS: `CorsConfig` defaults to allowing all origins — set `APP_CORS_ALLOWED_ORIGINS` to the
+   web app's origins before relying on it in production (see Gaps, section 10). Native mobile
+   clients don't need browser CORS at all.
 2. Run Flyway plus Hibernate validation against a fresh **Supabase** project specifically (this
    audit verified against a local Testcontainers PostgreSQL instance, not Supabase's managed
    Postgres/SSL configuration) and confirm the `JDBC_URL` SSL parameters Supabase requires work
